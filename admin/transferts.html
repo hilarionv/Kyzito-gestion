@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Transfert inter-caisses</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="screen">
+  <div class="top-bar">
+    <h1>Transfert inter-caisses</h1>
+    <button onclick="window.location.href='index.html'" style="font-size:12px;">← Retour</button>
+  </div>
+
+  <div class="card">
+    <p class="section-label">De (caisse source)</p>
+    <select id="caisse-source" style="width:100%; height:38px; margin-bottom:10px;"></select>
+
+    <p class="section-label">Vers (caisse destination)</p>
+    <select id="caisse-dest" style="width:100%; height:38px; margin-bottom:10px;"></select>
+
+    <p class="section-label">Montant</p>
+    <input type="number" id="montant" placeholder="Montant en FCFA" />
+
+    <p class="section-label">Motif</p>
+    <input type="text" id="motif" placeholder="Ex. appoint pour le week-end" />
+
+    <button class="btn-primary" onclick="valider()">Enregistrer le transfert</button>
+    <p id="erreur" style="color: var(--danger); font-size: 13px; margin-top: 8px; display:none;"></p>
+  </div>
+
+  <p class="section-label" style="margin-top: 1rem;">Transferts récents</p>
+  <div id="liste-transferts"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/transferts.js"></script>
+<script>
+let utilisateur, caisses = [];
+
+async function init() {
+  utilisateur = getUtilisateurLocal();
+  if (!utilisateur || utilisateur.role !== "admin") { window.location.href = "../index.html"; return; }
+
+  caisses = await getCaissesAvecSecteur();
+  remplirSelects();
+  afficherTransferts();
+}
+
+function remplirSelects() {
+  const source = document.getElementById("caisse-source");
+  const dest = document.getElementById("caisse-dest");
+  [source, dest].forEach(select => {
+    select.innerHTML = "";
+    caisses.forEach(c => {
+      const option = document.createElement("option");
+      option.value = c.id;
+      option.textContent = c.secteurs.nom + " — " + c.nom;
+      select.appendChild(option);
+    });
+  });
+}
+
+async function valider() {
+  const erreur = document.getElementById("erreur");
+  erreur.style.display = "none";
+
+  const caisseSourceId = document.getElementById("caisse-source").value;
+  const caisseDestId = document.getElementById("caisse-dest").value;
+  const montant = parseInt(document.getElementById("montant").value, 10);
+  const motif = document.getElementById("motif").value.trim();
+
+  if (caisseSourceId === caisseDestId) {
+    erreur.textContent = "La caisse source et destination doivent être différentes.";
+    erreur.style.display = "block";
+    return;
+  }
+  if (isNaN(montant) || montant <= 0) {
+    erreur.textContent = "Entre un montant valide.";
+    erreur.style.display = "block";
+    return;
+  }
+  if (!motif) {
+    erreur.textContent = "Ajoute un motif.";
+    erreur.style.display = "block";
+    return;
+  }
+
+  try {
+    await creerTransfert({ caisseSourceId, caisseDestId, montant, motif, utilisateurId: utilisateur.id });
+    document.getElementById("montant").value = "";
+    document.getElementById("motif").value = "";
+    afficherTransferts();
+  } catch (e) {
+    erreur.textContent = "Impossible d'enregistrer le transfert.";
+    erreur.style.display = "block";
+  }
+}
+
+async function afficherTransferts() {
+  const transferts = await getTransfertsRecents();
+  const conteneur = document.getElementById("liste-transferts");
+  conteneur.innerHTML = "";
+  if (transferts.length === 0) {
+    conteneur.innerHTML = `<p class="meta">Aucun transfert récent.</p>`;
+    return;
+  }
+  transferts.forEach(t => {
+    const div = document.createElement("div");
+    div.className = "row";
+    div.innerHTML = `
+      <div>
+        <p class="name">${t.source.nom} → ${t.dest.nom}</p>
+        <p class="meta">${t.motif || ""}</p>
+      </div>
+      <span style="font-size:13px; font-weight:500;">${t.montant.toLocaleString("fr-FR")}</span>`;
+    conteneur.appendChild(div);
+  });
+}
+
+init();
+</script>
+</body>
+</html>

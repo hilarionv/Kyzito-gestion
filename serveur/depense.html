@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nouvelle dépense</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="screen">
+  <div class="top-bar">
+    <h1>Nouvelle dépense</h1>
+    <button onclick="window.location.href='vente.html'" style="font-size:12px;">← Retour</button>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Catégorie</p>
+    <div class="grid-2" style="margin-bottom: 12px;">
+      <button class="cat-btn active" data-cat="ingredients" onclick="choisirCategorie('ingredients', this)">Ingrédients</button>
+      <button class="cat-btn" data-cat="entretien" onclick="choisirCategorie('entretien', this)">Entretien</button>
+      <button class="cat-btn" data-cat="boissons" onclick="choisirCategorie('boissons', this)">Boissons</button>
+      <button class="cat-btn" data-cat="autre" onclick="choisirCategorie('autre', this)">Autre</button>
+    </div>
+
+    <p class="section-label">Description</p>
+    <input type="text" id="description" placeholder="Ex. fromage, pain" />
+
+    <p class="section-label">Montant</p>
+    <input type="number" id="montant" placeholder="Montant en FCFA" />
+
+    <div class="row" style="background: var(--surface-2);">
+      <span class="meta">Prélevée sur</span>
+      <span style="font-size:13px; font-weight:500;">Caisse bar-restaurant</span>
+    </div>
+
+    <button class="btn-primary" style="margin-top: 10px;" onclick="enregistrer()">Enregistrer la dépense</button>
+    <p id="erreur" style="color: var(--danger); font-size: 13px; margin-top: 8px; display:none;"></p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script>
+let utilisateur, caisse, session, categorieActuelle = "ingredients";
+
+async function init() {
+  utilisateur = getUtilisateurLocal();
+  if (!utilisateur) { window.location.href = "../index.html"; return; }
+
+  const secteurs = await getSecteurs();
+  const secteur = secteurs.find(s => s.type === "bar_restaurant");
+  caisse = await getCaisseParSecteur(secteur.id);
+  session = await getSessionOuverte(caisse.id);
+}
+
+function choisirCategorie(cat, btn) {
+  categorieActuelle = cat;
+  document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+}
+
+async function enregistrer() {
+  const erreur = document.getElementById("erreur");
+  erreur.style.display = "none";
+
+  const description = document.getElementById("description").value.trim();
+  const montant = parseInt(document.getElementById("montant").value, 10);
+
+  if (!description) {
+    erreur.textContent = "Ajoute une description.";
+    erreur.style.display = "block";
+    return;
+  }
+  if (isNaN(montant) || montant <= 0) {
+    erreur.textContent = "Entre un montant valide.";
+    erreur.style.display = "block";
+    return;
+  }
+
+  try {
+    await enregistrerDepense({
+      caisseId: caisse.id,
+      sessionId: session ? session.id : null,
+      montant,
+      description: categorieActuelle + " — " + description,
+      categorie: "autre",
+      utilisateurId: utilisateur.id,
+    });
+    window.location.href = "vente.html";
+  } catch (e) {
+    erreur.textContent = "Impossible d'enregistrer la dépense. Réessaie.";
+    erreur.style.display = "block";
+  }
+}
+
+init();
+</script>
+</body>
+</html>

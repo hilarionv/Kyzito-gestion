@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chambres</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="screen">
+  <div class="top-bar">
+    <h1>Chambres</h1>
+    <button onclick="window.location.href='index.html'" style="font-size:12px;">← Retour</button>
+  </div>
+
+  <div class="grid-2" style="margin-bottom: 1rem;">
+    <div class="metric-card">
+      <p class="label">Occupées</p>
+      <p class="value" id="taux-occupation">…</p>
+    </div>
+    <div class="metric-card">
+      <p class="label">Revenu du jour</p>
+      <p class="value" id="revenu-jour">…</p>
+    </div>
+  </div>
+
+  <p class="section-label">Chambres par type</p>
+  <div id="liste-types"></div>
+
+  <p class="section-label" style="margin-top: 1rem;">Réservations du jour</p>
+  <div id="liste-reservations"></div>
+
+  <button class="btn-primary" style="margin-top: 10px;" onclick="ouvrirFormulaire()">+ Nouvelle réservation</button>
+
+  <div id="formulaire" class="card" style="display:none; margin-top: 10px;">
+    <p class="section-label">Chambre</p>
+    <select id="select-chambre" style="width:100%; height:38px; margin-bottom:10px;"></select>
+    <p class="section-label">Client</p>
+    <input type="text" id="client-nom" placeholder="Nom du client" />
+    <p class="section-label">Arrivée</p>
+    <input type="text" id="date-debut" placeholder="AAAA-MM-JJ" />
+    <p class="section-label">Départ</p>
+    <input type="text" id="date-fin" placeholder="AAAA-MM-JJ" />
+    <button class="btn-primary" onclick="validerReservation()">Enregistrer la réservation</button>
+    <p id="erreur-reservation" style="color: var(--danger); font-size: 13px; margin-top: 8px; display:none;"></p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/chambres.js"></script>
+<script>
+let utilisateur, secteur, caisse, chambres = [], types = [], reservations = [];
+
+async function init() {
+  utilisateur = getUtilisateurLocal();
+  if (!utilisateur || utilisateur.role !== "admin") { window.location.href = "../index.html"; return; }
+
+  const secteurs = await getSecteurs();
+  secteur = secteurs.find(s => s.type === "chambres");
+  caisse = await getCaisseParSecteur(secteur.id);
+
+  types = await getTypesChambres();
+  chambres = await getChambres();
+  reservations = await getReservationsDuJour();
+
+  afficherResume();
+  afficherTypes();
+  afficherReservations();
+  remplirSelectChambres();
+}
+
+function afficherResume() {
+  const occupees = reservations.filter(r => r.statut === "occupee").length;
+  document.getElementById("taux-occupation").textContent = occupees + " / " + chambres.length;
+
+  const revenu = reservations.reduce((total, r) => total + (r.montant_total || 0), 0);
+  document.getElementById("revenu-jour").textContent = revenu.toLocaleString("fr-FR");
+}
+
+function afficherTypes() {
+  const conteneur = document.getElementById("liste-types");
+  conteneur.innerHTML = "";
+  types.forEach(t => {
+    const chambresDuType = chambres.filter(c => c.type_chambre_id === t.id);
+    const occupeesDuType = reservations.filter(r =>
+      r.statut === "occupee" && chambresDuType.some(c => c.id === r.chambre_id)
+    ).length;
+
+    const div = document.createElement("div");
+    div.className = "row";
+    div.innerHTML = `
+      <div>
+        <p class="name">${t.nom}</p>
+        <p class="meta">${t.prix_nuit.toLocaleString("fr-FR")} FCFA / nuit</p>
+      </div>
+      <span class="meta">${occupeesDuType} / ${chambresDuType.length} occupées</span>`;
+    conteneur.appendChild(div);
+  });
+}
+
+function afficherReservations() {
+  const conteneur = document.getElementById("liste-reservations");
+  conteneur.innerHTML = "";
+  if (reservations.length === 0) {
+    conteneur.innerHTML = `<p class="meta">Aucune réservation aujourd'hui.</p>`;
+    return;
+  }
+  reservations.forEach(r => {
+    const badgeClass = r.statut === "occupee" ? "badge-success" : "badge-warning";
+    const div = document.createElement("div");
+    div.className = "row";
+    div.innerHTML = `
+      <div>
+        <p class="name">Chambre ${r.chambres.numero} — ${r.chambres.types_chambres.nom}</p>
+        <p class="meta">${r.client_nom}</p>
+      </div>
+      <span class="badge ${badgeClass}">${r.statut === "occupee" ? "Occupée" : "Réservée"}</span>`;
+    if (r.statut !== "occupee") {
+      div.style.cursor = "pointer";
+      div.onclick = () => confirmerArrivee(r.id);
+    }
+    conteneur.appendChild(div);
+  });
+}
+
+async function confirmerArrivee(reservationId) {
+  if (!confirm("Marquer cette réservation comme occupée (check-in) ?")) return;
+  await marquerOccupee(reservationId);
+  const reservation = reservations.find(r => r.id === reservationId);
+  await encaisserReservation(reservation, caisse.id, utilisateur.id);
+  reservation.statut = "occupee";
+  afficherResume();
+  afficherReservations();
+}
+
+function remplirSelectChambres() {
+  const select = document.getElementById("select-chambre");
+  select.innerHTML = "";
+  chambres.forEach(c => {
+    const option = document.createElement("option");
+    option.value = c.id;
+    option.textContent = "Chambre " + c.numero + " — " + c.types_chambres.nom + " (" + c.types_chambres.prix_nuit.toLocaleString("fr-FR") + " FCFA/nuit)";
+    select.appendChild(option);
+  });
+}
+
+function ouvrirFormulaire() {
+  document.getElementById("formulaire").style.display = "block";
+}
+
+async function validerReservation() {
+  const erreur = document.getElementById("erreur-reservation");
+  erreur.style.display = "none";
+
+  const chambreId = document.getElementById("select-chambre").value;
+  const clientNom = document.getElementById("client-nom").value.trim();
+  const dateDebut = document.getElementById("date-debut").value.trim();
+  const dateFin = document.getElementById("date-fin").value.trim();
+
+  if (!clientNom || !dateDebut || !dateFin) {
+    erreur.textContent = "Remplis tous les champs.";
+    erreur.style.display = "block";
+    return;
+  }
+
+  const chambre = chambres.find(c => c.id === chambreId);
+  const nuits = Math.max(1, (new Date(dateFin) - new Date(dateDebut)) / 86400000);
+  const montantTotal = nuits * chambre.types_chambres.prix_nuit;
+
+  try {
+    await creerReservation({ chambreId, clientNom, dateDebut, dateFin, montantTotal, caisseId: caisse.id });
+    window.location.reload();
+  } catch (e) {
+    erreur.textContent = "Impossible d'enregistrer la réservation.";
+    erreur.style.display = "block";
+  }
+}
+
+init();
+</script>
+</body>
+</html>

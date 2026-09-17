@@ -2,8 +2,8 @@
 // Config Supabase — remplace ces deux valeurs par celles de ton
 // projet (Supabase > Project Settings > API)
 // ============================================================
-const SUPABASE_URL = "https://TON-PROJET.supabase.co";
-const SUPABASE_ANON_KEY = "TA-CLE-ANON";
+const SUPABASE_URL = "https://epefchkcwxzuvmlywzji.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_pvxQRV2__xgKrYx5wt8RMQ_iqdodB3x";
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
