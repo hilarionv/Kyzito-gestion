@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tableau de bord — Admin</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="screen">
+  <div class="top-bar">
+    <div>
+      <div class="sub">Aujourd'hui</div>
+      <h1 id="total-jour" style="font-size:22px;">…</h1>
+    </div>
+    <button onclick="deconnecter()" style="font-size:12px;">Déconnexion</button>
+  </div>
+
+  <div class="grid-2" id="cartes-secteurs"></div>
+
+  <div class="section-label" style="margin-top:1rem;">Actions rapides</div>
+  <div class="grid-2">
+    <button onclick="alert('À implémenter : formulaire de transfert')">↔ Transfert</button>
+    <button onclick="alert('À implémenter : dépense partagée')">Dépense partagée</button>
+    <button onclick="alert('À implémenter : gestion stock')">Stock</button>
+    <button onclick="alert('À implémenter : rapports mensuels')">Rapports</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script>
+async function init() {
+  const utilisateur = getUtilisateurLocal();
+  if (!utilisateur || utilisateur.role !== "admin") { window.location.href = "../index.html"; return; }
+
+  const aujourdhui = new Date().toISOString().slice(0, 10);
+  const secteurs = await getSecteurs();
+  const compta = await getComptaJournaliere(aujourdhui);
+
+  let totalJour = 0;
+  const conteneur = document.getElementById("cartes-secteurs");
+  conteneur.innerHTML = "";
+
+  secteurs.forEach(s => {
+    const ligne = compta.find(c => c.secteur_id === s.id);
+    const ventes = ligne ? ligne.total_ventes : 0;
+    totalJour += ventes;
+
+    const div = document.createElement("div");
+    div.className = "metric-card";
+    div.innerHTML = `
+      <p class="label">${s.nom}</p>
+      <p class="value">${ventes.toLocaleString("fr-FR")}</p>`;
+    conteneur.appendChild(div);
+  });
+
+  document.getElementById("total-jour").textContent = totalJour.toLocaleString("fr-FR") + " FCFA";
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gestion hôtel — Connexion</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="screen" style="padding-top: 4rem;">
+  <div class="card" style="text-align:center;">
+    <h1 style="font-size:18px; margin: 0 0 4px;">Gestion hôtel</h1>
+    <p class="sub" style="margin: 0 0 20px; color: var(--text-secondary); font-size:13px;">Entre ton code d'accès</p>
+    <input type="text" id="code" placeholder="Code d'accès" inputmode="numeric" style="text-align:center; font-size: 20px; letter-spacing: 4px;" />
+    <button class="btn-primary" onclick="seConnecter()">Se connecter</button>
+    <p id="erreur" style="color: var(--danger); font-size: 13px; margin-top: 10px; display:none;">Code invalide</p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script>
+async function seConnecter() {
+  const code = document.getElementById("code").value.trim();
+  const erreur = document.getElementById("erreur");
+  erreur.style.display = "none";
+
+  if (!code) {
+    erreur.textContent = "Entre un code.";
+    erreur.style.display = "block";
+    return;
+  }
+
+  try {
+    const utilisateur = await connecterAvecCode(code);
+    if (utilisateur.role === "admin") {
+      window.location.href = "admin/index.html";
+    } else {
+      window.location.href = "serveur/vente.html";
+    }
+  } catch (e) {
+    erreur.textContent = "Code invalide.";
+    erreur.style.display = "block";
+  }
+}
+
+// Permet de valider avec la touche Entrée
+document.getElementById("code").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") seConnecter();
+});
+</script>
+</body>
+</html>

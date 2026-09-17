@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vente — Bar-restaurant</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="screen">
+  <div class="top-bar">
+    <div>
+      <h1 id="titre-session">Session —</h1>
+      <div class="sub" id="sous-titre-session">…</div>
+    </div>
+    <div style="text-align:right;">
+      <div class="sub">Total session</div>
+      <div style="font-size:16px; font-weight:600;" id="total-session">0</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="active" data-cat="boisson" onclick="filtrer('boisson', this)">Boissons</button>
+    <button data-cat="nourriture_resto1" onclick="filtrer('nourriture_resto1', this)">Nourriture</button>
+  </div>
+
+  <div id="liste-produits"></div>
+
+  <button style="width:100%; margin-top: 10px;" onclick="ouvrirDepense()">− Prélever pour un achat</button>
+  <button style="width:100%; margin-top: 8px; color: var(--danger); border-color: var(--danger-bg);" onclick="clorerSessionUI()">Clôturer la session</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script>
+let utilisateur, secteur, caisse, session, produits = [], filtreActuel = "boisson", quantites = {};
+
+async function init() {
+  utilisateur = getUtilisateurLocal();
+  if (!utilisateur) { window.location.href = "../index.html"; return; }
+
+  const secteurs = await getSecteurs();
+  secteur = secteurs.find(s => s.type === "bar_restaurant");
+  caisse = await getCaisseParSecteur(secteur.id);
+
+  session = await getSessionOuverte(caisse.id);
+  if (!session) {
+    // Pas de session ouverte : on en ouvre une nouvelle (équipe à ajuster
+    // selon l'heure, simplifié ici pour la démo).
+    const heure = new Date().getHours();
+    const equipe = heure < 16 ? "matin" : "soir";
+    session = await ouvrirSession(caisse.id, equipe, 0, utilisateur.id);
+  }
+
+  document.getElementById("titre-session").textContent = "Session " + session.equipe;
+  document.getElementById("sous-titre-session").textContent =
+    "Ouverte à " + new Date(session.ouverte_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+  produits = await getProduits(secteur.id);
+  produits.forEach(p => quantites[p.id] = 0);
+  afficherProduits();
+}
+
+function filtrer(cat, btn) {
+  filtreActuel = cat;
+  document.querySelectorAll(".tabs button").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  afficherProduits();
+}
+
+function afficherProduits() {
+  const conteneur = document.getElementById("liste-produits");
+  conteneur.innerHTML = "";
+  produits
+    .filter(p => p.categorie === filtreActuel)
+    .forEach(p => {
+      const enRupture = p.stock_frigo <= 0;
+      const row = document.createElement("div");
+      row.className = "row";
+      row.innerHTML = `
+        <div>
+          <p class="name">${p.nom}</p>
+          <p class="meta" style="${enRupture ? 'color: var(--danger);' : ''}">
+            ${enRupture ? "Rupture de stock" : p.prix_vente.toLocaleString("fr-FR") + " FCFA"}
+          </p>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size:13px; font-weight:600; min-width:14px; text-align:center;">${quantites[p.id]}</span>
+          <button class="btn-round primary" ${enRupture ? "disabled" : ""} onclick="vendre('${p.id}')">+</button>
+        </div>`;
+      conteneur.appendChild(row);
+    });
+}
+
+async function vendre(produitId) {
+  const produit = produits.find(p => p.id === produitId);
+  try {
+    await enregistrerVente({ caisseId: caisse.id, sessionId: session.id, produit, utilisateurId: utilisateur.id });
+    quantites[produitId]++;
+    produit.stock_frigo--;
+    const total = document.getElementById("total-session");
+    total.textContent = (parseInt(total.textContent.replace(/\D/g, "")) + produit.prix_vente).toLocaleString("fr-FR");
+    afficherProduits();
+  } catch (e) {
+    alert("Impossible d'enregistrer la vente. Réessaie.");
+  }
+}
+
+function ouvrirDepense() {
+  window.location.href = "depense.html";
+}
+
+async function clorerSessionUI() {
+  const montantReelStr = prompt("Montant compté dans la caisse (FCFA) :");
+  if (montantReelStr === null) return;
+  const montantReel = parseInt(montantReelStr, 10);
+  if (isNaN(montantReel)) { alert("Montant invalide."); return; }
+
+  const montantTheorique = parseInt(document.getElementById("total-session").textContent.replace(/\D/g, ""), 10) + session.montant_ouverture;
+  await cloturerSession(session.id, montantTheorique, montantReel, utilisateur.id);
+  alert("Session clôturée. Écart : " + (montantReel - montantTheorique).toLocaleString("fr-FR") + " FCFA");
+  window.location.href = "../index.html";
+}
+
+init();
+</script>
+</body>
+</html>
