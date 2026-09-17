@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Piscines</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="screen">
+  <div class="top-bar">
+    <h1>Piscines</h1>
+    <button onclick="retour()" style="font-size:12px;">← Retour</button>
+  </div>
+
+  <div class="card" style="text-align:center; padding: 1.5rem 1.25rem;">
+    <p class="meta" style="margin:0 0 4px;">Tickets piscine — aujourd'hui</p>
+    <p id="compteur" style="font-size:34px; font-weight:600; margin:0 0 4px;">0</p>
+    <p class="meta" id="total" style="margin:0 0 18px;">3 000 FCFA / ticket — 0 FCFA</p>
+
+    <div style="display:flex; gap:10px; justify-content:center;">
+      <button class="btn-round" onclick="ajuster(-1)">−</button>
+      <button class="btn-round primary" onclick="ajuster(1)">+</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/piscines.js"></script>
+<script>
+let utilisateur, caisse, quantiteEnAttente = 0, totalDuJour = 0;
+
+function retour() {
+  window.location.href = utilisateur && utilisateur.role === "admin" ? "../admin/index.html" : "vente.html";
+}
+
+async function init() {
+  utilisateur = getUtilisateurLocal();
+  if (!utilisateur) { window.location.href = "../index.html"; return; }
+
+  const secteurs = await getSecteurs();
+  const secteur = secteurs.find(s => s.type === "piscines");
+  caisse = await getCaisseParSecteur(secteur.id);
+
+  const ventes = await getVentesPiscineDuJour();
+  totalDuJour = ventes.reduce((t, v) => t + v.nombre_tickets, 0);
+  afficher();
+}
+
+function afficher() {
+  document.getElementById("compteur").textContent = totalDuJour;
+  document.getElementById("total").textContent =
+    "3 000 FCFA / ticket — " + (totalDuJour * 3000).toLocaleString("fr-FR") + " FCFA";
+}
+
+// On accumule les clics localement puis on enregistre à intervalle pour
+// éviter une écriture réseau à chaque tap (UX rapide voulue par Hilarion).
+let timer = null;
+function ajuster(delta) {
+  if (delta > 0) {
+    quantiteEnAttente++;
+    totalDuJour++;
+  } else if (totalDuJour > 0) {
+    totalDuJour--;
+  }
+  afficher();
+
+  clearTimeout(timer);
+  timer = setTimeout(async () => {
+    if (quantiteEnAttente > 0) {
+      await ajouterTicketsPiscine(quantiteEnAttente, caisse.id, utilisateur.id);
+      quantiteEnAttente = 0;
+    }
+  }, 800);
+}
+
+init();
+</script>
+</body>
+</html>

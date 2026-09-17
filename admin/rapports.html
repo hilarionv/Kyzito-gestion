@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rapports mensuels</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="screen">
+  <div class="top-bar">
+    <h1>Rapport du mois</h1>
+    <button onclick="window.location.href='index.html'" style="font-size:12px;">← Retour</button>
+  </div>
+
+  <div class="grid-2" style="margin-bottom: 1rem;">
+    <div class="metric-card">
+      <p class="label">Recettes totales</p>
+      <p class="value" id="total-recettes">…</p>
+    </div>
+    <div class="metric-card">
+      <p class="label">Bénéfice net</p>
+      <p class="value" id="benefice-net">…</p>
+    </div>
+  </div>
+
+  <p class="section-label">Par secteur</p>
+  <div id="liste-secteurs"></div>
+
+  <p class="section-label" style="margin-top: 1rem;">Dépenses partagées du mois</p>
+  <div id="liste-depenses"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/depenses-partagees.js"></script>
+<script>
+const maintenant = new Date();
+const moisActuel = maintenant.getMonth() + 1;
+const anneeActuelle = maintenant.getFullYear();
+const premierJourMois = new Date(anneeActuelle, maintenant.getMonth(), 1).toISOString().slice(0, 10);
+
+async function init() {
+  const utilisateur = getUtilisateurLocal();
+  if (!utilisateur || utilisateur.role !== "admin") { window.location.href = "../index.html"; return; }
+
+  const compta = await getComptaMensuelle(premierJourMois);
+  const depenses = await getDepensesPartageesDuMois(moisActuel, anneeActuelle);
+
+  const totalVentes = compta.reduce((t, c) => t + c.total_ventes, 0);
+  const totalDepensesSecteur = compta.reduce((t, c) => t + c.total_depenses, 0);
+  const totalDepensesPartagees = depenses.reduce((t, d) => t + d.montant, 0);
+  const beneficeNet = totalVentes - totalDepensesSecteur - totalDepensesPartagees;
+
+  document.getElementById("total-recettes").textContent = totalVentes.toLocaleString("fr-FR");
+  document.getElementById("benefice-net").textContent = beneficeNet.toLocaleString("fr-FR");
+
+  const conteneurSecteurs = document.getElementById("liste-secteurs");
+  conteneurSecteurs.innerHTML = "";
+  if (compta.length === 0) {
+    conteneurSecteurs.innerHTML = `<p class="meta">Pas encore de données ce mois-ci.</p>`;
+  }
+  compta.forEach(c => {
+    const div = document.createElement("div");
+    div.className = "row";
+    div.innerHTML = `
+      <span class="name">${c.secteur_nom}</span>
+      <span style="font-size:13px; font-weight:500;">${c.total_ventes.toLocaleString("fr-FR")}</span>`;
+    conteneurSecteurs.appendChild(div);
+  });
+
+  const conteneurDepenses = document.getElementById("liste-depenses");
+  conteneurDepenses.innerHTML = "";
+  if (depenses.length === 0) {
+    conteneurDepenses.innerHTML = `<p class="meta">Aucune dépense partagée ce mois-ci.</p>`;
+  }
+  depenses.forEach(d => {
+    const secteursNoms = d.depenses_partagees_secteurs.map(x => x.secteurs.nom).join(", ");
+    const div = document.createElement("div");
+    div.className = "row";
+    div.innerHTML = `
+      <div>
+        <p class="name">${d.description}</p>
+        <p class="meta">${secteursNoms}</p>
+      </div>
+      <span style="font-size:13px; font-weight:500;">${d.montant.toLocaleString("fr-FR")}</span>`;
+    conteneurDepenses.appendChild(div);
+  });
+}
+
+init();
+</script>
+</body>
+</html>

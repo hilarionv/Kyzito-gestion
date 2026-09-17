@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Salle de conférence</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="screen">
+  <div class="top-bar">
+    <h1>Salle de conférence</h1>
+    <button onclick="window.location.href='index.html'" style="font-size:12px;">← Retour</button>
+  </div>
+
+  <div class="card" style="text-align:center;">
+    <p class="meta" style="margin:0 0 6px;">Tarif fixe</p>
+    <p style="font-size:22px; font-weight:600; margin:0 0 16px;">150 000 FCFA / jour</p>
+    <input type="text" id="client-nom" placeholder="Nom du client" style="margin-bottom:10px;" />
+    <input type="text" id="date" placeholder="AAAA-MM-JJ" style="margin-bottom:10px;" />
+    <button class="btn-primary" onclick="reserver()">Réserver aujourd'hui</button>
+    <p id="erreur" style="color: var(--danger); font-size: 13px; margin-top: 8px; display:none;"></p>
+  </div>
+
+  <p class="section-label" style="margin-top: 1rem;">Réservations du mois</p>
+  <div id="liste"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/salle.js"></script>
+<script>
+let utilisateur, caisse;
+
+async function init() {
+  utilisateur = getUtilisateurLocal();
+  if (!utilisateur || utilisateur.role !== "admin") { window.location.href = "../index.html"; return; }
+
+  const secteurs = await getSecteurs();
+  const secteur = secteurs.find(s => s.type === "salle_conference");
+  caisse = await getCaisseParSecteur(secteur.id);
+
+  document.getElementById("date").value = new Date().toISOString().slice(0, 10);
+  afficherListe();
+}
+
+async function reserver() {
+  const erreur = document.getElementById("erreur");
+  erreur.style.display = "none";
+
+  const clientNom = document.getElementById("client-nom").value.trim();
+  const date = document.getElementById("date").value.trim();
+
+  if (!clientNom || !date) {
+    erreur.textContent = "Remplis le nom du client et la date.";
+    erreur.style.display = "block";
+    return;
+  }
+
+  try {
+    await reserverSalle(date, clientNom, caisse.id, utilisateur.id);
+    document.getElementById("client-nom").value = "";
+    afficherListe();
+  } catch (e) {
+    erreur.textContent = "Impossible d'enregistrer la réservation.";
+    erreur.style.display = "block";
+  }
+}
+
+async function afficherListe() {
+  const reservations = await getReservationsSalleDuMois();
+  const conteneur = document.getElementById("liste");
+  conteneur.innerHTML = "";
+  if (reservations.length === 0) {
+    conteneur.innerHTML = `<p class="meta">Aucune réservation ce mois-ci.</p>`;
+    return;
+  }
+  reservations.forEach(r => {
+    const div = document.createElement("div");
+    div.className = "row";
+    div.innerHTML = `
+      <div>
+        <p class="name">${r.client_nom}</p>
+        <p class="meta">${r.date}</p>
+      </div>
+      <span style="font-size:13px; font-weight:500;">${r.montant.toLocaleString("fr-FR")}</span>`;
+    conteneur.appendChild(div);
+  });
+}
+
+init();
+</script>
+</body>
+</html>

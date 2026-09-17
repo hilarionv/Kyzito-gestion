@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dépenses partagées</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="screen">
+  <div class="top-bar">
+    <h1>Dépenses partagées</h1>
+    <button onclick="window.location.href='index.html'" style="font-size:12px;">← Retour</button>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Type</p>
+    <div class="grid-2" style="margin-bottom: 12px;">
+      <button class="type-btn active" data-type="salaire" onclick="choisirType('salaire', this)">Salaire / charge fixe</button>
+      <button class="type-btn" data-type="facture" onclick="choisirType('facture', this)">Facture</button>
+    </div>
+
+    <p class="section-label">Secteurs concernés</p>
+    <div id="liste-secteurs" style="margin-bottom: 12px;"></div>
+
+    <p class="section-label">Description</p>
+    <input type="text" id="description" placeholder="Ex. facture d'électricité de septembre" />
+
+    <p class="section-label">Montant</p>
+    <input type="number" id="montant" placeholder="Montant en FCFA" />
+
+    <button class="btn-primary" onclick="valider()">Enregistrer la dépense</button>
+    <p id="erreur" style="color: var(--danger); font-size: 13px; margin-top: 8px; display:none;"></p>
+  </div>
+
+  <p class="section-label" style="margin-top: 1rem;">Ce mois-ci</p>
+  <div id="liste-depenses"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/depenses-partagees.js"></script>
+<script>
+let secteurs = [], typeActuel = "salaire";
+const maintenant = new Date();
+const moisActuel = maintenant.getMonth() + 1;
+const anneeActuelle = maintenant.getFullYear();
+
+async function init() {
+  const utilisateur = getUtilisateurLocal();
+  if (!utilisateur || utilisateur.role !== "admin") { window.location.href = "../index.html"; return; }
+
+  secteurs = await getSecteurs();
+  afficherSecteurs();
+  afficherDepenses();
+}
+
+function afficherSecteurs() {
+  const conteneur = document.getElementById("liste-secteurs");
+  conteneur.innerHTML = "";
+  secteurs.forEach(s => {
+    const label = document.createElement("label");
+    label.style.cssText = "display:flex; align-items:center; gap:8px; padding:6px 0; font-size:13px;";
+    label.innerHTML = `<input type="checkbox" value="${s.id}" class="secteur-check" /> ${s.nom}`;
+    conteneur.appendChild(label);
+  });
+}
+
+function choisirType(type, btn) {
+  typeActuel = type;
+  document.querySelectorAll(".type-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+}
+
+async function valider() {
+  const erreur = document.getElementById("erreur");
+  erreur.style.display = "none";
+
+  const description = document.getElementById("description").value.trim();
+  const montant = parseInt(document.getElementById("montant").value, 10);
+  const secteurIds = Array.from(document.querySelectorAll(".secteur-check:checked")).map(c => c.value);
+
+  if (!description) { erreur.textContent = "Ajoute une description."; erreur.style.display = "block"; return; }
+  if (isNaN(montant) || montant <= 0) { erreur.textContent = "Entre un montant valide."; erreur.style.display = "block"; return; }
+  if (secteurIds.length === 0) { erreur.textContent = "Sélectionne au moins un secteur."; erreur.style.display = "block"; return; }
+
+  try {
+    await creerDepensePartagee({
+      mois: moisActuel, annee: anneeActuelle, type: typeActuel, montant, description, secteurIds,
+    });
+    document.getElementById("description").value = "";
+    document.getElementById("montant").value = "";
+    document.querySelectorAll(".secteur-check").forEach(c => c.checked = false);
+    afficherDepenses();
+  } catch (e) {
+    erreur.textContent = "Impossible d'enregistrer la dépense.";
+    erreur.style.display = "block";
+  }
+}
+
+async function afficherDepenses() {
+  const depenses = await getDepensesPartageesDuMois(moisActuel, anneeActuelle);
+  const conteneur = document.getElementById("liste-depenses");
+  conteneur.innerHTML = "";
+  if (depenses.length === 0) {
+    conteneur.innerHTML = `<p class="meta">Aucune dépense partagée ce mois-ci.</p>`;
+    return;
+  }
+  depenses.forEach(d => {
+    const secteursNoms = d.depenses_partagees_secteurs.map(x => x.secteurs.nom).join(", ");
+    const div = document.createElement("div");
+    div.className = "row";
+    div.innerHTML = `
+      <div>
+        <p class="name">${d.description}</p>
+        <p class="meta">${secteursNoms}</p>
+      </div>
+      <span style="font-size:13px; font-weight:500;">${d.montant.toLocaleString("fr-FR")}</span>`;
+    conteneur.appendChild(div);
+  });
+}
+
+init();
+</script>
+</body>
+</html>

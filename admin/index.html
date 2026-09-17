@@ -21,9 +21,9 @@
   <div class="section-label" style="margin-top:1rem;">Actions rapides</div>
   <div class="grid-2">
     <button onclick="window.location.href='transferts.html'">↔ Transfert</button>
-    <button onclick="alert('À implémenter : dépense partagée')">Dépense partagée</button>
+    <button onclick="window.location.href='depenses-partagees.html'">Dépense partagée</button>
     <button onclick="window.location.href='stock.html'">Stock</button>
-    <button onclick="alert('À implémenter : rapports mensuels')">Rapports</button>
+    <button onclick="window.location.href='rapports.html'">Rapports</button>
   </div>
 </div>
 
@@ -52,7 +52,11 @@ async function init() {
     div.innerHTML = `
       <p class="label">${s.nom}</p>
       <p class="value">${ventes.toLocaleString("fr-FR")}</p>`;
-    const lien = s.type === "chambres" ? "chambres.html" : s.type === "bar_restaurant" ? "stock.html" : null;
+    const lien = s.type === "chambres" ? "chambres.html"
+      : s.type === "bar_restaurant" ? "stock.html"
+      : s.type === "salle_conference" ? "salle.html"
+      : s.type === "piscines" ? "../serveur/piscines.html"
+      : null;
     if (lien) {
       div.style.cursor = "pointer";
       div.onclick = () => window.location.href = lien;
