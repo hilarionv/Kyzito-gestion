@@ -31,9 +31,9 @@
     <button data-cat="nourriture" onclick="filtrer('nourriture', this)">Nourriture</button>
   </div>
 
-  <div id="bloc-frequents" style="display:none; margin-bottom: 14px;">
-    <p class="section-label">⭐ Souvent vendus (cette session)</p>
-    <div id="liste-frequents" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:4px;"></div>
+  <div id="bloc-frequents" style="display:none; margin-top: 18px; margin-bottom: 22px;">
+    <p class="section-label" style="font-size:15px; margin-bottom:10px;">⭐ Souvent vendus (cette session)</p>
+    <div id="liste-frequents" style="display:flex; gap:10px; overflow-x:auto; padding-bottom:6px;"></div>
   </div>
 
   <div id="liste-produits"></div>
@@ -107,7 +107,7 @@ function afficherFrequents() {
   conteneur.innerHTML = "";
   frequents.forEach(p => {
     const chip = document.createElement("button");
-    chip.style.cssText = "flex-shrink:0; background: var(--accent-bg); border-color: transparent; color: var(--accent); font-size:13px; white-space:nowrap;";
+    chip.style.cssText = "flex-shrink:0; background: var(--accent-bg); border-color: transparent; color: var(--accent); font-size:14px; padding: 12px 16px; white-space:nowrap; min-height:44px;";
     chip.textContent = p.nom + " (" + quantites[p.id] + ") +";
     chip.onclick = () => vendre(p.id);
     conteneur.appendChild(chip);
@@ -136,7 +136,8 @@ function afficherProduits() {
             ${enRupture ? "Rupture de stock" : p.prix_variable ? "Prix variable" : p.prix_vente.toLocaleString("fr-FR") + " FCFA"}
           </p>
         </div>
-        <div style="display:flex; align-items:center; gap:10px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button class="btn-round" ${quantites[p.id] === 0 ? "disabled" : ""} onclick="retirer('${p.id}')">−</button>
           <span style="font-size:16px; font-weight:600; min-width:18px; text-align:center;">${quantites[p.id]}</span>
           <button class="btn-round primary" ${enRupture ? "disabled" : ""} onclick="vendre('${p.id}')">+</button>
         </div>`;
@@ -164,6 +165,21 @@ async function vendre(produitId) {
     afficherProduits();
   } catch (e) {
     alert("Impossible d'enregistrer la vente. Réessaie.");
+  }
+}
+
+async function retirer(produitId) {
+  const produit = produits.find(p => p.id === produitId);
+  try {
+    const montant = await annulerVente(session.id, produitId, produit.categorie);
+    if (montant === null) return;
+    quantites[produitId]--;
+    if (produit.categorie === "boisson") produit.stock_frigo++;
+    const total = document.getElementById("total-session");
+    total.textContent = Math.max(0, parseInt(total.textContent.replace(/\D/g, "")) - montant).toLocaleString("fr-FR");
+    afficherProduits();
+  } catch (e) {
+    alert("Impossible d'annuler cette vente.");
   }
 }
 

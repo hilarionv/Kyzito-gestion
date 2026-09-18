@@ -21,7 +21,7 @@ function setUtilisateurLocal(utilisateur) {
 
 function deconnecter() {
   localStorage.removeItem("utilisateur");
-  window.location.href = "/index.html";
+  window.location.href = "../index.html";
 }
 
 // ------------------------------------------------------------
@@ -147,6 +147,35 @@ async function enregistrerVente({ caisseId, sessionId, produit, utilisateurId })
   });
   if (error) throw error;
   return data;
+}
+
+async function annulerVente(sessionId, produitId, categorie) {
+  const { data: derniere, error: e1 } = await supabaseClient
+    .from("mouvements_caisse")
+    .select("*")
+    .eq("session_id", sessionId)
+    .eq("produit_id", produitId)
+    .eq("type", "vente")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (e1) throw e1;
+  if (!derniere) return null;
+
+  const { error: e2 } = await supabaseClient.from("mouvements_caisse").delete().eq("id", derniere.id);
+  if (e2) throw e2;
+
+  if (categorie === "boisson") {
+    const { data: produit, error: e3 } = await supabaseClient
+      .from("produits")
+      .select("stock_frigo")
+      .eq("id", produitId)
+      .single();
+    if (e3) throw e3;
+    await supabaseClient.from("produits").update({ stock_frigo: produit.stock_frigo + 1 }).eq("id", produitId);
+  }
+
+  return derniere.montant;
 }
 
 // ------------------------------------------------------------
