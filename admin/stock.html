@@ -25,6 +25,38 @@
 
   <p class="section-label" style="margin-top: 1rem;">Stock actuel</p>
   <div id="liste-stock"></div>
+
+  <p class="section-label" style="margin-top: 1rem;">Ajouter un nouveau produit</p>
+  <div class="card">
+    <p class="section-label">Catégorie</p>
+    <div class="grid-2" style="margin-bottom: 12px;">
+      <button class="cat-btn-produit active" data-cat="boisson" onclick="choisirCategorieProduit('boisson', this)">Boisson</button>
+      <button class="cat-btn-produit" data-cat="nourriture" onclick="choisirCategorieProduit('nourriture', this)">Nourriture</button>
+    </div>
+
+    <p class="section-label">Nom du produit</p>
+    <input type="text" id="nouveau-nom" placeholder="Ex. Sprite" />
+
+    <p class="section-label">Prix</p>
+    <input type="number" id="nouveau-prix" placeholder="Prix en FCFA" />
+
+    <label style="display:flex; align-items:center; gap:8px; font-size:14px; margin-bottom:10px;">
+      <input type="checkbox" id="nouveau-prix-variable" style="width:auto; margin:0;" />
+      Prix variable (saisi à chaque vente, ex. poisson braisé)
+    </label>
+
+    <div id="bloc-emplacement">
+      <p class="section-label">Disponible à</p>
+      <div class="grid-2" style="margin-bottom: 12px;">
+        <button class="emp-btn active" data-emp="" onclick="choisirEmplacement('', this)">Partout</button>
+        <button class="emp-btn" data-emp="resto_1" onclick="choisirEmplacement('resto_1', this)">Resto 1</button>
+        <button class="emp-btn" data-emp="resto_2" onclick="choisirEmplacement('resto_2', this)">CLK</button>
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="creerProduit()">Ajouter le produit</button>
+    <p id="erreur-produit" style="color: var(--danger); font-size: 13px; margin-top: 8px; display:none;"></p>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -113,6 +145,53 @@ async function transfererProduit(produitId) {
     afficherStock();
   } catch (e) {
     alert(e.message || "Transfert impossible.");
+  }
+}
+
+let categorieProduit = "boisson", emplacementProduit = "";
+
+function choisirCategorieProduit(cat, btn) {
+  categorieProduit = cat;
+  document.querySelectorAll(".cat-btn-produit").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById("bloc-emplacement").style.display = cat === "boisson" ? "block" : "none";
+}
+
+function choisirEmplacement(emp, btn) {
+  emplacementProduit = emp;
+  document.querySelectorAll(".emp-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+}
+
+async function creerProduit() {
+  const erreur = document.getElementById("erreur-produit");
+  erreur.style.display = "none";
+
+  const nom = document.getElementById("nouveau-nom").value.trim();
+  const prixVariable = document.getElementById("nouveau-prix-variable").checked;
+  const prix = parseInt(document.getElementById("nouveau-prix").value, 10);
+
+  if (!nom) { erreur.textContent = "Entre un nom de produit."; erreur.style.display = "block"; return; }
+  if (!prixVariable && (isNaN(prix) || prix <= 0)) { erreur.textContent = "Entre un prix valide."; erreur.style.display = "block"; return; }
+
+  try {
+    const nouveau = await ajouterProduit({
+      secteurId: secteur.id,
+      nom,
+      categorie: categorieProduit,
+      prixVente: prixVariable ? 0 : prix,
+      emplacement: categorieProduit === "boisson" ? (emplacementProduit || null) : null,
+      prixVariable,
+    });
+    produits.push(nouveau);
+    document.getElementById("nouveau-nom").value = "";
+    document.getElementById("nouveau-prix").value = "";
+    document.getElementById("nouveau-prix-variable").checked = false;
+    afficherFormulaireLivraison();
+    afficherStock();
+  } catch (e) {
+    erreur.textContent = "Impossible d'ajouter le produit.";
+    erreur.style.display = "block";
   }
 }
 

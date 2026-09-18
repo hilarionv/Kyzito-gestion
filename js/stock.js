@@ -1,5 +1,25 @@
 
 // ------------------------------------------------------------
+// Ajouter un nouveau produit au catalogue
+// ------------------------------------------------------------
+async function ajouterProduit({ secteurId, nom, categorie, prixVente, emplacement, prixVariable }) {
+  const { data, error } = await supabaseClient
+    .from("produits")
+    .insert({
+      secteur_id: secteurId,
+      nom,
+      categorie,
+      prix_vente: prixVente || 0,
+      emplacement: emplacement || null,
+      prix_variable: prixVariable || false,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// ------------------------------------------------------------
 // Stock — livraisons & transferts grenier -> frigo
 // ------------------------------------------------------------
 async function enregistrerLivraison(produitId, quantite, utilisateurId) {
