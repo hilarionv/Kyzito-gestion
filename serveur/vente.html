@@ -13,20 +13,27 @@
       <h1 id="titre-session">Session —</h1>
       <div class="sub" id="sous-titre-session">…</div>
     </div>
-    <div style="text-align:right;">
-      <div class="sub">Total session</div>
-      <div style="font-size:16px; font-weight:600;" id="total-session">0</div>
-    </div>
+    <select id="select-resto" onchange="changerResto(this.value)" style="width:auto; height:38px; border-radius: var(--radius); border:1px solid var(--border); font-size:14px; padding:0 8px;">
+      <option value="resto_1">📍 Resto 1</option>
+      <option value="resto_2">📍 CLK</option>
+    </select>
   </div>
 
-  <div class="tabs" id="tabs-resto">
-    <button class="active" data-resto="resto_1" onclick="changerResto('resto_1', this)">Resto 1</button>
-    <button data-resto="resto_2" onclick="changerResto('resto_2', this)">CLK</button>
+  <div class="card" style="background: var(--text-primary); color: #fff; display:flex; justify-content:space-between; align-items:center; padding: 0.9rem 1.1rem;">
+    <span style="font-size:14px; opacity:0.8;">Total session</span>
+    <span style="font-size:20px; font-weight:700;" id="total-session">0</span>
   </div>
+
+  <input type="text" id="recherche" placeholder="🔍 Rechercher un produit…" oninput="afficherProduits()" style="margin-top: 4px;" />
 
   <div class="tabs">
     <button class="active" data-cat="boisson" onclick="filtrer('boisson', this)">Boissons</button>
     <button data-cat="nourriture" onclick="filtrer('nourriture', this)">Nourriture</button>
+  </div>
+
+  <div id="bloc-frequents" style="display:none; margin-bottom: 14px;">
+    <p class="section-label">⭐ Souvent vendus (cette session)</p>
+    <div id="liste-frequents" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:4px;"></div>
   </div>
 
   <div id="liste-produits"></div>
@@ -74,10 +81,8 @@ async function chargerCaisseEtSession(resto) {
   document.getElementById("total-session").textContent = total.toLocaleString("fr-FR");
 }
 
-async function changerResto(resto, btn) {
+async function changerResto(resto) {
   restoActuel = resto;
-  document.querySelectorAll("#tabs-resto button").forEach(b => b.classList.remove("active"));
-  btn.classList.add("active");
   await chargerCaisseEtSession(resto);
   afficherProduits();
 }
@@ -89,14 +94,39 @@ function filtrer(cat, btn) {
   afficherProduits();
 }
 
+function afficherFrequents() {
+  const bloc = document.getElementById("bloc-frequents");
+  const conteneur = document.getElementById("liste-frequents");
+  const frequents = produits
+    .filter(p => quantites[p.id] > 0)
+    .sort((a, b) => quantites[b.id] - quantites[a.id])
+    .slice(0, 5);
+
+  if (frequents.length === 0) { bloc.style.display = "none"; return; }
+  bloc.style.display = "block";
+  conteneur.innerHTML = "";
+  frequents.forEach(p => {
+    const chip = document.createElement("button");
+    chip.style.cssText = "flex-shrink:0; background: var(--accent-bg); border-color: transparent; color: var(--accent); font-size:13px; white-space:nowrap;";
+    chip.textContent = p.nom + " (" + quantites[p.id] + ") +";
+    chip.onclick = () => vendre(p.id);
+    conteneur.appendChild(chip);
+  });
+}
+
 function afficherProduits() {
+  afficherFrequents();
+
+  const recherche = document.getElementById("recherche").value.trim().toLowerCase();
   const conteneur = document.getElementById("liste-produits");
   conteneur.innerHTML = "";
+
   produits
     .filter(p => p.categorie === filtreActuel)
     .filter(p => p.emplacement === null || p.emplacement === restoActuel)
+    .filter(p => !recherche || p.nom.toLowerCase().includes(recherche))
     .forEach(p => {
-      const enRupture = p.stock_frigo <= 0 && !p.prix_variable;
+      const enRupture = p.categorie === "boisson" && p.stock_frigo <= 0 && !p.prix_variable;
       const row = document.createElement("div");
       row.className = "row";
       row.innerHTML = `
@@ -128,7 +158,7 @@ async function vendre(produitId) {
   try {
     await enregistrerVente({ caisseId: caisse.id, sessionId: session.id, produit: { ...produit, prix_vente: montant }, utilisateurId: utilisateur.id });
     quantites[produitId]++;
-    if (!produit.prix_variable) produit.stock_frigo--;
+    if (produit.categorie === "boisson" && !produit.prix_variable) produit.stock_frigo--;
     const total = document.getElementById("total-session");
     total.textContent = (parseInt(total.textContent.replace(/\D/g, "")) + montant).toLocaleString("fr-FR");
     afficherProduits();
