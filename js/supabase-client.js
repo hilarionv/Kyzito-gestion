@@ -212,6 +212,19 @@ async function getTotalSession(sessionId) {
   }, 0);
 }
 
+async function getMouvementsDuJour(date) {
+  const debut = date + "T00:00:00";
+  const fin = date + "T23:59:59";
+  const { data, error } = await supabaseClient
+    .from("mouvements_caisse")
+    .select("*, produits(nom), caisses(nom, secteurs(nom))")
+    .gte("created_at", debut)
+    .lte("created_at", fin)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
 // ------------------------------------------------------------
 // Comptabilité (vues v_compta_journaliere / v_compta_mensuelle)
 // ------------------------------------------------------------

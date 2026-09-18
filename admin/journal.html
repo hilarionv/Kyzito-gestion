@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dernières ventes</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="screen">
+  <div class="top-bar">
+    <h1>Dernières ventes</h1>
+    <button onclick="window.location.href='index.html'" style="font-size:12px;">← Retour</button>
+  </div>
+
+  <input type="date" id="date-filtre" onchange="charger()" style="margin-bottom: 4px;" />
+
+  <div class="grid-2" style="margin-bottom: 1rem;">
+    <div class="metric-card">
+      <p class="label">Total ventes</p>
+      <p class="value" id="total-ventes">…</p>
+    </div>
+    <div class="metric-card">
+      <p class="label">Total sorties</p>
+      <p class="value" id="total-sorties">…</p>
+    </div>
+  </div>
+
+  <div id="liste"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script>
+async function init() {
+  const utilisateur = getUtilisateurLocal();
+  if (!utilisateur || utilisateur.role !== "admin") { window.location.href = "../index.html"; return; }
+
+  document.getElementById("date-filtre").value = new Date().toISOString().slice(0, 10);
+  charger();
+}
+
+const LABELS_TYPE = {
+  vente: { texte: "Vente", classe: "badge-success" },
+  achat: { texte: "Sortie", classe: "badge-danger" },
+  transfert_entrant: { texte: "Transfert ↓", classe: "badge-accent" },
+  transfert_sortant: { texte: "Transfert ↑", classe: "badge-warning" },
+};
+
+async function charger() {
+  const date = document.getElementById("date-filtre").value;
+  if (!date) return;
+
+  const mouvements = await getMouvementsDuJour(date);
+
+  const totalVentes = mouvements.filter(m => m.type === "vente").reduce((t, m) => t + m.montant, 0);
+  const totalSorties = mouvements.filter(m => m.type === "achat").reduce((t, m) => t + m.montant, 0);
+  document.getElementById("total-ventes").textContent = totalVentes.toLocaleString("fr-FR");
+  document.getElementById("total-sorties").textContent = totalSorties.toLocaleString("fr-FR");
+
+  const conteneur = document.getElementById("liste");
+  conteneur.innerHTML = "";
+
+  if (mouvements.length === 0) {
+    conteneur.innerHTML = `<p class="meta">Rien d'enregistré ce jour-là.</p>`;
+    return;
+  }
+
+  mouvements.forEach(m => {
+    const heure = new Date(m.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    const label = LABELS_TYPE[m.type] || { texte: m.type, classe: "badge-accent" };
+    const nomProduit = m.produits ? m.produits.nom : (m.description || "—");
+    const nomCaisse = m.caisses ? m.caisses.secteurs.nom + " — " + m.caisses.nom : "";
+
+    const div = document.createElement("div");
+    div.className = "row";
+    div.innerHTML = `
+      <div>
+        <p class="name">${nomProduit}</p>
+        <p class="meta">${heure} · ${nomCaisse}</p>
+      </div>
+      <div style="text-align:right;">
+        <p style="font-size:15px; font-weight:600; margin:0;">${m.montant.toLocaleString("fr-FR")}</p>
+        <span class="badge ${label.classe}">${label.texte}</span>
+      </div>`;
+    conteneur.appendChild(div);
+  });
+}
+
+init();
+</script>
+</body>
+</html>

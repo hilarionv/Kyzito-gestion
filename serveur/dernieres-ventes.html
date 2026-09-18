@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dernières ventes</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="screen">
+  <div class="top-bar">
+    <h1>Dernières ventes</h1>
+    <button onclick="window.location.href='vente.html'" style="font-size:12px;">← Retour</button>
+  </div>
+
+  <input type="date" id="date-filtre" onchange="charger()" style="margin-bottom: 12px;" />
+
+  <div id="liste"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script>
+const LABELS_TYPE = {
+  vente: { texte: "Vente", classe: "badge-success" },
+  achat: { texte: "Sortie", classe: "badge-danger" },
+  transfert_entrant: { texte: "Transfert ↓", classe: "badge-accent" },
+  transfert_sortant: { texte: "Transfert ↑", classe: "badge-warning" },
+};
+
+async function init() {
+  const utilisateur = getUtilisateurLocal();
+  if (!utilisateur) { window.location.href = "../index.html"; return; }
+
+  document.getElementById("date-filtre").value = new Date().toISOString().slice(0, 10);
+  charger();
+}
+
+async function charger() {
+  const date = document.getElementById("date-filtre").value;
+  if (!date) return;
+
+  const tous = await getMouvementsDuJour(date);
+  // Seulement le bar-restaurant (resto 1 + CLK) — pas chambres/salle/piscines
+  const mouvements = tous.filter(m => m.caisses && m.caisses.secteurs.nom === "Bar-restaurant");
+
+  const conteneur = document.getElementById("liste");
+  conteneur.innerHTML = "";
+
+  if (mouvements.length === 0) {
+    conteneur.innerHTML = `<p class="meta">Rien d'enregistré ce jour-là.</p>`;
+    return;
+  }
+
+  mouvements.forEach(m => {
+    const heure = new Date(m.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    const label = LABELS_TYPE[m.type] || { texte: m.type, classe: "badge-accent" };
+    const nomProduit = m.produits ? m.produits.nom : (m.description || "—");
+
+    const div = document.createElement("div");
+    div.className = "row";
+    div.innerHTML = `
+      <div>
+        <p class="name">${nomProduit}</p>
+        <p class="meta">${heure} · ${m.caisses.nom}</p>
+      </div>
+      <div style="text-align:right;">
+        <p style="font-size:15px; font-weight:600; margin:0;">${m.montant.toLocaleString("fr-FR")}</p>
+        <span class="badge ${label.classe}">${label.texte}</span>
+      </div>`;
+    conteneur.appendChild(div);
+  });
+}
+
+init();
+</script>
+</body>
+</html>
