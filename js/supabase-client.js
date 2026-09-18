@@ -60,6 +60,17 @@ async function getCaisseParSecteur(secteurId) {
   return data;
 }
 
+async function getCaisseParEmplacement(secteurId, emplacement) {
+  const { data, error } = await supabaseClient
+    .from("caisses")
+    .select("*")
+    .eq("secteur_id", secteurId)
+    .eq("emplacement", emplacement)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 // ------------------------------------------------------------
 // Sessions de caisse (bar-restaurant)
 // ------------------------------------------------------------
@@ -157,6 +168,19 @@ async function enregistrerDepense({ caisseId, sessionId, montant, description, c
     .single();
   if (error) throw error;
   return data;
+}
+
+async function getTotalSession(sessionId) {
+  const { data, error } = await supabaseClient
+    .from("mouvements_caisse")
+    .select("type, montant")
+    .eq("session_id", sessionId);
+  if (error) throw error;
+  return data.reduce((total, m) => {
+    if (m.type === "vente" || m.type === "transfert_entrant") return total + m.montant;
+    if (m.type === "achat" || m.type === "transfert_sortant") return total - m.montant;
+    return total;
+  }, 0);
 }
 
 // ------------------------------------------------------------

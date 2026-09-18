@@ -19,9 +19,14 @@
     </div>
   </div>
 
+  <div class="tabs" id="tabs-resto">
+    <button class="active" data-resto="resto_1" onclick="changerResto('resto_1', this)">Resto 1</button>
+    <button data-resto="resto_2" onclick="changerResto('resto_2', this)">CLK</button>
+  </div>
+
   <div class="tabs">
     <button class="active" data-cat="boisson" onclick="filtrer('boisson', this)">Boissons</button>
-    <button data-cat="nourriture_resto1" onclick="filtrer('nourriture_resto1', this)">Nourriture</button>
+    <button data-cat="nourriture" onclick="filtrer('nourriture', this)">Nourriture</button>
   </div>
 
   <div id="liste-produits"></div>
@@ -34,7 +39,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase-client.js"></script>
 <script>
-let utilisateur, secteur, caisse, session, produits = [], filtreActuel = "boisson", quantites = {};
+let utilisateur, secteur, caisse, session, produits = [], filtreActuel = "boisson", restoActuel = "resto_1", quantites = {};
 
 async function init() {
   utilisateur = getUtilisateurLocal();
@@ -42,23 +47,38 @@ async function init() {
 
   const secteurs = await getSecteurs();
   secteur = secteurs.find(s => s.type === "bar_restaurant");
-  caisse = await getCaisseParSecteur(secteur.id);
+
+  produits = await getProduits(secteur.id);
+  produits.forEach(p => quantites[p.id] = 0);
+
+  await chargerCaisseEtSession("resto_1");
+  afficherProduits();
+}
+
+async function chargerCaisseEtSession(resto) {
+  caisse = await getCaisseParEmplacement(secteur.id, resto);
 
   session = await getSessionOuverte(caisse.id);
   if (!session) {
-    // Pas de session ouverte : on en ouvre une nouvelle (équipe à ajuster
-    // selon l'heure, simplifié ici pour la démo).
     const heure = new Date().getHours();
     const equipe = heure < 16 ? "matin" : "soir";
     session = await ouvrirSession(caisse.id, equipe, 0, utilisateur.id);
   }
 
-  document.getElementById("titre-session").textContent = "Session " + session.equipe;
+  document.getElementById("titre-session").textContent =
+    "Session " + session.equipe + (resto === "resto_2" ? " — CLK" : " — Resto 1");
   document.getElementById("sous-titre-session").textContent =
     "Ouverte à " + new Date(session.ouverte_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
-  produits = await getProduits(secteur.id);
-  produits.forEach(p => quantites[p.id] = 0);
+  const total = await getTotalSession(session.id);
+  document.getElementById("total-session").textContent = total.toLocaleString("fr-FR");
+}
+
+async function changerResto(resto, btn) {
+  restoActuel = resto;
+  document.querySelectorAll("#tabs-resto button").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  await chargerCaisseEtSession(resto);
   afficherProduits();
 }
 
@@ -74,19 +94,20 @@ function afficherProduits() {
   conteneur.innerHTML = "";
   produits
     .filter(p => p.categorie === filtreActuel)
+    .filter(p => p.emplacement === null || p.emplacement === restoActuel)
     .forEach(p => {
-      const enRupture = p.stock_frigo <= 0;
+      const enRupture = p.stock_frigo <= 0 && !p.prix_variable;
       const row = document.createElement("div");
       row.className = "row";
       row.innerHTML = `
         <div>
           <p class="name">${p.nom}</p>
           <p class="meta" style="${enRupture ? 'color: var(--danger);' : ''}">
-            ${enRupture ? "Rupture de stock" : p.prix_vente.toLocaleString("fr-FR") + " FCFA"}
+            ${enRupture ? "Rupture de stock" : p.prix_variable ? "Prix variable" : p.prix_vente.toLocaleString("fr-FR") + " FCFA"}
           </p>
         </div>
         <div style="display:flex; align-items:center; gap:10px;">
-          <span style="font-size:13px; font-weight:600; min-width:14px; text-align:center;">${quantites[p.id]}</span>
+          <span style="font-size:16px; font-weight:600; min-width:18px; text-align:center;">${quantites[p.id]}</span>
           <button class="btn-round primary" ${enRupture ? "disabled" : ""} onclick="vendre('${p.id}')">+</button>
         </div>`;
       conteneur.appendChild(row);
@@ -95,12 +116,21 @@ function afficherProduits() {
 
 async function vendre(produitId) {
   const produit = produits.find(p => p.id === produitId);
+  let montant = produit.prix_vente;
+
+  if (produit.prix_variable) {
+    const saisie = prompt("Montant pour " + produit.nom + " (FCFA) :");
+    if (saisie === null) return;
+    montant = parseInt(saisie, 10);
+    if (isNaN(montant) || montant <= 0) { alert("Montant invalide."); return; }
+  }
+
   try {
-    await enregistrerVente({ caisseId: caisse.id, sessionId: session.id, produit, utilisateurId: utilisateur.id });
+    await enregistrerVente({ caisseId: caisse.id, sessionId: session.id, produit: { ...produit, prix_vente: montant }, utilisateurId: utilisateur.id });
     quantites[produitId]++;
-    produit.stock_frigo--;
+    if (!produit.prix_variable) produit.stock_frigo--;
     const total = document.getElementById("total-session");
-    total.textContent = (parseInt(total.textContent.replace(/\D/g, "")) + produit.prix_vente).toLocaleString("fr-FR");
+    total.textContent = (parseInt(total.textContent.replace(/\D/g, "")) + montant).toLocaleString("fr-FR");
     afficherProduits();
   } catch (e) {
     alert("Impossible d'enregistrer la vente. Réessaie.");
@@ -108,6 +138,7 @@ async function vendre(produitId) {
 }
 
 function ouvrirDepense() {
+  localStorage.setItem("resto_actuel", restoActuel);
   window.location.href = "depense.html";
 }
 
