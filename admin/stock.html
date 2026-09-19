@@ -101,6 +101,7 @@ async function validerLivraison() {
   try {
     for (const p of produits) {
       const input = document.getElementById("livraison-" + p.id);
+      if (!input) continue;
       const quantite = parseInt(input.value, 10);
       if (!isNaN(quantite) && quantite > 0) {
         await enregistrerLivraison(p.id, quantite, utilisateur.id);
