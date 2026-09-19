@@ -13,6 +13,8 @@
     <button onclick="window.location.href='index.html'" style="font-size:12px;">← Retour</button>
   </div>
 
+  <input type="text" id="recherche-stock" placeholder="🔍 Rechercher un produit…" oninput="filtrerRecherche()" style="margin-top: 4px;" />
+
   <div class="status-banner" style="background: var(--accent-bg); color: var(--accent);">
     <span>🚚 Réceptionner la livraison (fournisseur boissons)</span>
   </div>
@@ -78,16 +80,19 @@ async function init() {
 }
 
 function afficherFormulaireLivraison() {
+  const recherche = (document.getElementById("recherche-stock").value || "").trim().toLowerCase();
   const conteneur = document.getElementById("liste-livraison");
   conteneur.innerHTML = "";
-  produits.forEach(p => {
-    const row = document.createElement("div");
-    row.className = "row";
-    row.innerHTML = `
-      <span class="name">${p.nom}</span>
-      <input type="number" id="livraison-${p.id}" placeholder="Qté reçue" style="width:100px; margin:0;" />`;
-    conteneur.appendChild(row);
-  });
+  produits
+    .filter(p => !recherche || p.nom.toLowerCase().includes(recherche))
+    .forEach(p => {
+      const row = document.createElement("div");
+      row.className = "row";
+      row.innerHTML = `
+        <span class="name">${p.nom}</span>
+        <input type="number" id="livraison-${p.id}" placeholder="Qté reçue" style="width:100px; margin:0;" />`;
+      conteneur.appendChild(row);
+    });
 }
 
 async function validerLivraison() {
@@ -111,24 +116,32 @@ async function validerLivraison() {
 }
 
 function afficherStock() {
+  const recherche = (document.getElementById("recherche-stock").value || "").trim().toLowerCase();
   const conteneur = document.getElementById("liste-stock");
   conteneur.innerHTML = "";
-  produits.forEach(p => {
-    const epuise = p.stock_grenier === 0 && p.stock_frigo === 0;
-    const div = document.createElement("div");
-    div.className = "card";
-    div.innerHTML = `
-      <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-        <span class="name" style="${epuise ? 'color: var(--danger);' : ''}">${p.nom}</span>
-        <span class="meta" style="${epuise ? 'color: var(--danger);' : ''}">
-          Frigo ${p.stock_frigo} · Grenier ${p.stock_grenier}
-        </span>
-      </div>
-      <button style="width:100%; font-size:12px;" ${p.stock_grenier === 0 ? "disabled" : ""} onclick="transfererProduit('${p.id}')">
-        ↓ Transférer vers le frigo
-      </button>`;
-    conteneur.appendChild(div);
-  });
+  produits
+    .filter(p => !recherche || p.nom.toLowerCase().includes(recherche))
+    .forEach(p => {
+      const epuise = p.stock_grenier === 0 && p.stock_frigo === 0;
+      const div = document.createElement("div");
+      div.className = "card";
+      div.innerHTML = `
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+          <span class="name" style="${epuise ? 'color: var(--danger);' : ''}">${p.nom}</span>
+          <span class="meta" style="${epuise ? 'color: var(--danger);' : ''}">
+            Frigo ${p.stock_frigo} · Grenier ${p.stock_grenier}
+          </span>
+        </div>
+        <button style="width:100%; font-size:12px;" ${p.stock_grenier === 0 ? "disabled" : ""} onclick="transfererProduit('${p.id}')">
+          ↓ Transférer vers le frigo
+        </button>`;
+      conteneur.appendChild(div);
+    });
+}
+
+function filtrerRecherche() {
+  afficherFormulaireLivraison();
+  afficherStock();
 }
 
 async function transfererProduit(produitId) {
