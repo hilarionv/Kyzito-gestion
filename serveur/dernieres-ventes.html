@@ -56,13 +56,14 @@ async function charger() {
     const heure = new Date(m.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
     const label = LABELS_TYPE[m.type] || { texte: m.type, classe: "badge-accent" };
     const nomProduit = m.produits ? m.produits.nom : (m.description || "—");
+    const modePaiement = m.mode_paiement && m.mode_paiement !== "especes" ? " · " + (m.mode_paiement === "wave" ? "🟢 Wave" : m.mode_paiement === "orange_money" ? "🟠 Orange Money" : m.mode_paiement) : "";
 
     const div = document.createElement("div");
     div.className = "row";
     div.innerHTML = `
       <div>
         <p class="name">${nomProduit}</p>
-        <p class="meta">${heure} · ${m.caisses.nom}</p>
+        <p class="meta">${heure} · ${m.caisses.nom}${modePaiement}</p>
       </div>
       <div style="text-align:right;">
         <p style="font-size:15px; font-weight:600; margin:0;">${m.montant.toLocaleString("fr-FR")}</p>

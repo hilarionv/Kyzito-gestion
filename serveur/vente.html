@@ -26,8 +26,15 @@
 
   <div class="tabs" style="margin-top: 4px;">
     <button class="active" id="btn-especes" onclick="changerModePaiement('especes')">💵 Espèces</button>
-    <button id="btn-mobile" onclick="changerModePaiement('mobile')">📱 Wave / OM</button>
+    <button id="btn-wave" onclick="changerModePaiement('wave')">🟢 Wave</button>
+    <button id="btn-om" onclick="changerModePaiement('orange_money')">🟠 Orange Money</button>
   </div>
+
+  <div id="banniere-mode" style="display:none; background: var(--accent); color: #fff; text-align:center; font-size:13px; font-weight:600; padding:8px; border-radius: var(--radius); margin-top:8px;">
+    Prochaine vente en mode <span id="banniere-mode-nom"></span> — pas en espèces
+  </div>
+
+  <div id="confirmation-vente" style="display:none; background: var(--success-bg); color: var(--success); text-align:center; font-size:13px; font-weight:600; padding:8px; border-radius: var(--radius); margin-top:8px;"></div>
 
   <input type="text" id="recherche" placeholder="🔍 Rechercher un produit…" oninput="afficherProduits()" style="margin-top: 4px;" />
 
@@ -57,10 +64,21 @@
 <script>
 let utilisateur, secteur, caisse, session, produits = [], filtreActuel = "boisson", restoActuel = "resto_1", quantites = {}, modePaiementActuel = "especes";
 
+const NOMS_MODE = { especes: "Espèces", wave: "Wave", orange_money: "Orange Money" };
+
 function changerModePaiement(mode) {
   modePaiementActuel = mode;
   document.getElementById("btn-especes").classList.toggle("active", mode === "especes");
-  document.getElementById("btn-mobile").classList.toggle("active", mode === "mobile");
+  document.getElementById("btn-wave").classList.toggle("active", mode === "wave");
+  document.getElementById("btn-om").classList.toggle("active", mode === "orange_money");
+
+  const banniere = document.getElementById("banniere-mode");
+  if (mode === "especes") {
+    banniere.style.display = "none";
+  } else {
+    document.getElementById("banniere-mode-nom").textContent = NOMS_MODE[mode];
+    banniere.style.display = "block";
+  }
 }
 
 async function init() {
@@ -178,7 +196,14 @@ async function vendre(produitId) {
     const total = document.getElementById("total-session");
     total.textContent = (parseInt(total.textContent.replace(/\D/g, "")) + montant).toLocaleString("fr-FR");
     afficherProduits();
-    if (modePaiementActuel === "mobile") changerModePaiement("especes");
+
+    if (modePaiementActuel !== "especes") {
+      const confirmation = document.getElementById("confirmation-vente");
+      confirmation.textContent = "✅ " + produit.nom + " enregistré en " + NOMS_MODE[modePaiementActuel] + " (" + montant.toLocaleString("fr-FR") + " FCFA)";
+      confirmation.style.display = "block";
+      setTimeout(() => { confirmation.style.display = "none"; }, 4000);
+      changerModePaiement("especes");
+    }
   } catch (e) {
     alert("Impossible d'enregistrer la vente. Réessaie.");
   }

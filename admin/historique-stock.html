@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Historique du stock</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="screen">
+  <div class="top-bar">
+    <h1>🕒 Historique</h1>
+    <button onclick="window.location.href='stock.html'" style="font-size:12px;">← Retour</button>
+  </div>
+
+  <p class="meta" style="margin-bottom: 12px;">Qui a modifié le stock, quoi, et quand — les 30 derniers mouvements.</p>
+
+  <div id="liste-historique"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/stock.js"></script>
+<script>
+const LABELS_MOUVEMENT_STOCK = {
+  livraison: "Livraison",
+  grenier_vers_frigo: "Transfert → frigo",
+  vente: "Vente",
+};
+
+async function init() {
+  const utilisateur = getUtilisateurLocal();
+  if (!utilisateur || utilisateur.role !== "admin") { window.location.href = "../index.html"; return; }
+
+  const mouvements = await getMouvementsStockRecents(30);
+  const conteneur = document.getElementById("liste-historique");
+  conteneur.innerHTML = "";
+
+  if (mouvements.length === 0) {
+    conteneur.innerHTML = `<p class="meta">Aucun mouvement pour l'instant.</p>`;
+    return;
+  }
+
+  mouvements.forEach(m => {
+    const heure = new Date(m.created_at).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    const nomProduit = m.produits ? m.produits.nom : "—";
+    const nomAuteur = m.utilisateurs ? m.utilisateurs.nom : "—";
+    const signe = m.quantite > 0 ? "+" : "";
+
+    const div = document.createElement("div");
+    div.className = "row";
+    div.innerHTML = `
+      <div>
+        <p class="name">${nomProduit}</p>
+        <p class="meta">${LABELS_MOUVEMENT_STOCK[m.type] || m.type} · ${heure} · par ${nomAuteur}</p>
+      </div>
+      <span style="font-size:15px; font-weight:600;">${signe}${m.quantite}</span>`;
+    conteneur.appendChild(div);
+  });
+}
+
+init();
+</script>
+</body>
+</html>

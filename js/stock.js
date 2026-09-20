@@ -38,6 +38,20 @@ async function corrigerStockFrigo(produitId, delta, utilisateurId) {
 
   return nouveauStock;
 }
+
+// ------------------------------------------------------------
+// Modifier un produit existant (prix, nom, prix variable)
+// ------------------------------------------------------------
+async function modifierProduit(produitId, updates) {
+  const { data, error } = await supabaseClient
+    .from("produits")
+    .update(updates)
+    .eq("id", produitId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
 async function ajouterProduit({ secteurId, nom, categorie, prixVente, emplacement, prixVariable }) {
   const { data, error } = await supabaseClient
     .from("produits")

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nouveau produit</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="screen">
+  <div class="top-bar">
+    <h1>➕ Nouveau produit</h1>
+    <button onclick="window.location.href='stock.html'" style="font-size:12px;">← Retour</button>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Catégorie</p>
+    <div class="grid-2" style="margin-bottom: 12px;">
+      <button class="cat-btn-produit active" data-cat="boisson" onclick="choisirCategorieProduit('boisson', this)">Boisson</button>
+      <button class="cat-btn-produit" data-cat="nourriture" onclick="choisirCategorieProduit('nourriture', this)">Nourriture</button>
+    </div>
+
+    <p class="section-label">Nom du produit</p>
+    <input type="text" id="nouveau-nom" placeholder="Ex. Sprite" />
+
+    <p class="section-label">Prix</p>
+    <input type="number" id="nouveau-prix" placeholder="Prix en FCFA" />
+
+    <label style="display:flex; align-items:center; gap:8px; font-size:14px; margin-bottom:10px;">
+      <input type="checkbox" id="nouveau-prix-variable" style="width:auto; margin:0;" />
+      Prix variable (saisi à chaque vente, ex. poisson braisé)
+    </label>
+
+    <div id="bloc-emplacement">
+      <p class="section-label">Disponible à</p>
+      <div class="grid-2" style="margin-bottom: 12px;">
+        <button class="emp-btn active" data-emp="" onclick="choisirEmplacement('', this)">Partout</button>
+        <button class="emp-btn" data-emp="resto_1" onclick="choisirEmplacement('resto_1', this)">Resto 1</button>
+        <button class="emp-btn" data-emp="resto_2" onclick="choisirEmplacement('resto_2', this)">CLK</button>
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="creerProduit()">Ajouter le produit</button>
+    <p id="erreur-produit" style="color: var(--danger); font-size: 13px; margin-top: 8px; display:none;"></p>
+    <p id="succes-produit" style="color: var(--success); font-size: 13px; margin-top: 8px; display:none;"></p>
+  </div>
+
+  <p class="section-label" style="margin-top: 1.5rem;">Modifier un produit existant</p>
+  <input type="text" id="recherche-modif" placeholder="🔍 Rechercher un produit…" oninput="afficherListeModif()" style="margin-bottom: 10px;" />
+  <div id="liste-modif"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/stock.js"></script>
+<script>
+let utilisateur, secteur, tousLesProduits = [];
+let categorieProduit = "boisson", emplacementProduit = "";
+
+async function init() {
+  utilisateur = getUtilisateurLocal();
+  if (!utilisateur || utilisateur.role !== "admin") { window.location.href = "../index.html"; return; }
+
+  const secteurs = await getSecteurs();
+  secteur = secteurs.find(s => s.type === "bar_restaurant");
+  tousLesProduits = await getProduits(secteur.id);
+  afficherListeModif();
+}
+
+function afficherListeModif() {
+  const recherche = document.getElementById("recherche-modif").value.trim().toLowerCase();
+  const conteneur = document.getElementById("liste-modif");
+  conteneur.innerHTML = "";
+
+  tousLesProduits
+    .filter(p => !recherche || p.nom.toLowerCase().includes(recherche))
+    .forEach(p => {
+      const div = document.createElement("div");
+      div.className = "card";
+      div.innerHTML = `
+        <p class="name" style="margin-bottom:8px;">${p.nom}${p.emplacement ? " (" + (p.emplacement === "resto_2" ? "CLK" : "Resto 1") + ")" : ""}</p>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="number" id="prix-${p.id}" value="${p.prix_vente}" style="margin:0;" />
+          <button onclick="sauvegarderPrix('${p.id}')" style="white-space:nowrap;">Enregistrer</button>
+        </div>`;
+      conteneur.appendChild(div);
+    });
+}
+
+async function sauvegarderPrix(produitId) {
+  const input = document.getElementById("prix-" + produitId);
+  const nouveauPrix = parseInt(input.value, 10);
+  if (isNaN(nouveauPrix) || nouveauPrix < 0) { alert("Prix invalide."); return; }
+
+  try {
+    await modifierProduit(produitId, { prix_vente: nouveauPrix });
+    const produit = tousLesProduits.find(p => p.id === produitId);
+    produit.prix_vente = nouveauPrix;
+    alert("Prix mis à jour !");
+  } catch (e) {
+    alert("Impossible de mettre à jour le prix.");
+  }
+}
+
+function choisirCategorieProduit(cat, btn) {
+  categorieProduit = cat;
+  document.querySelectorAll(".cat-btn-produit").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById("bloc-emplacement").style.display = cat === "boisson" ? "block" : "none";
+}
+
+function choisirEmplacement(emp, btn) {
+  emplacementProduit = emp;
+  document.querySelectorAll(".emp-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+}
+
+async function creerProduit() {
+  const erreur = document.getElementById("erreur-produit");
+  const succes = document.getElementById("succes-produit");
+  erreur.style.display = "none";
+  succes.style.display = "none";
+
+  const nom = document.getElementById("nouveau-nom").value.trim();
+  const prixVariable = document.getElementById("nouveau-prix-variable").checked;
+  const prix = parseInt(document.getElementById("nouveau-prix").value, 10);
+
+  if (!nom) { erreur.textContent = "Entre un nom de produit."; erreur.style.display = "block"; return; }
+  if (!prixVariable && (isNaN(prix) || prix <= 0)) { erreur.textContent = "Entre un prix valide."; erreur.style.display = "block"; return; }
+
+  try {
+    const nouveau = await ajouterProduit({
+      secteurId: secteur.id,
+      nom,
+      categorie: categorieProduit,
+      prixVente: prixVariable ? 0 : prix,
+      emplacement: categorieProduit === "boisson" ? (emplacementProduit || null) : null,
+      prixVariable,
+    });
+    tousLesProduits.push(nouveau);
+    afficherListeModif();
+    document.getElementById("nouveau-nom").value = "";
+    document.getElementById("nouveau-prix").value = "";
+    document.getElementById("nouveau-prix-variable").checked = false;
+    succes.textContent = "Produit ajouté !";
+    succes.style.display = "block";
+  } catch (e) {
+    erreur.textContent = "Impossible d'ajouter le produit.";
+    erreur.style.display = "block";
+  }
+}
+
+init();
+</script>
+</body>
+</html>
