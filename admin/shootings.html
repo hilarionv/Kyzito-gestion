@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Shootings photo</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="screen">
+  <div class="top-bar">
+    <h1>Shootings photo</h1>
+    <button onclick="window.location.href='index.html'" style="font-size:12px;">← Retour</button>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Nom du client</p>
+    <input type="text" id="client-nom" placeholder="Nom du client" />
+
+    <p class="section-label">Date</p>
+    <input type="date" id="date-shooting" />
+
+    <p class="section-label">Formule</p>
+    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+      <button class="prix-btn active" data-prix="2500" onclick="choisirPrix(2500, this)">2 500 FCFA</button>
+      <button class="prix-btn" data-prix="5000" onclick="choisirPrix(5000, this)">5 000 FCFA</button>
+      <button class="prix-btn" data-prix="10000" onclick="choisirPrix(10000, this)">10 000 FCFA</button>
+    </div>
+
+    <button class="btn-primary" onclick="reserver()">Enregistrer la réservation</button>
+    <p id="erreur" style="color: var(--danger); font-size: 13px; margin-top: 8px; display:none;"></p>
+  </div>
+
+  <p class="section-label" style="margin-top: 1rem;">Réservations du mois</p>
+  <div id="liste"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/shootings.js"></script>
+<script>
+let utilisateur, caisse, prixChoisi = 2500;
+
+async function init() {
+  utilisateur = getUtilisateurLocal();
+  if (!utilisateur || utilisateur.role !== "admin") { window.location.href = "../index.html"; return; }
+
+  const secteurs = await getSecteurs();
+  const secteur = secteurs.find(s => s.type === "shooting_photo");
+  caisse = await getCaisseParSecteur(secteur.id);
+
+  document.getElementById("date-shooting").value = new Date().toISOString().slice(0, 10);
+  afficherListe();
+}
+
+function choisirPrix(prix, btn) {
+  prixChoisi = prix;
+  document.querySelectorAll(".prix-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+}
+
+async function reserver() {
+  const erreur = document.getElementById("erreur");
+  erreur.style.display = "none";
+
+  const clientNom = document.getElementById("client-nom").value.trim();
+  const date = document.getElementById("date-shooting").value;
+
+  if (!clientNom || !date) {
+    erreur.textContent = "Remplis le nom du client et la date.";
+    erreur.style.display = "block";
+    return;
+  }
+
+  try {
+    await reserverShooting(date, clientNom, prixChoisi, caisse.id, utilisateur.id);
+    document.getElementById("client-nom").value = "";
+    afficherListe();
+  } catch (e) {
+    erreur.textContent = "Impossible d'enregistrer la réservation.";
+    erreur.style.display = "block";
+  }
+}
+
+async function afficherListe() {
+  const reservations = await getReservationsShootingDuMois();
+  const conteneur = document.getElementById("liste");
+  conteneur.innerHTML = "";
+  if (reservations.length === 0) {
+    conteneur.innerHTML = `<p class="meta">Aucune réservation ce mois-ci.</p>`;
+    return;
+  }
+  reservations.forEach(r => {
+    const div = document.createElement("div");
+    div.className = "row";
+    div.innerHTML = `
+      <div>
+        <p class="name">${r.client_nom}</p>
+        <p class="meta">${r.date}</p>
+      </div>
+      <span style="font-size:13px; font-weight:500;">${r.prix.toLocaleString("fr-FR")}</span>`;
+    conteneur.appendChild(div);
+  });
+}
+
+init();
+</script>
+</body>
+</html>

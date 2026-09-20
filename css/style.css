@@ -141,6 +141,7 @@ input[type="text"], input[type="number"], input[type="date"] {
 .type-btn.active { background: var(--accent-bg); color: var(--accent); border-color: transparent; }
 .cat-btn-produit.active { background: var(--accent-bg); color: var(--accent); border-color: transparent; }
 .emp-btn.active { background: var(--accent-bg); color: var(--accent); border-color: transparent; }
+.prix-btn.active { background: var(--accent-bg); color: var(--accent); border-color: transparent; }
 
 .section-label {
   font-size: 14px;
