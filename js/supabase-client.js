@@ -136,7 +136,7 @@ async function getProduits(secteurId) {
 // Enregistre une vente ET décrémente le stock frigo en une seule opération.
 // Nécessite une fonction Postgres côté Supabase (voir schema.sql /
 // à créer : rpc "enregistrer_vente") pour garantir l'atomicité.
-async function enregistrerVente({ caisseId, sessionId, produit, utilisateurId }) {
+async function enregistrerVente({ caisseId, sessionId, produit, utilisateurId, modePaiement }) {
   const { data, error } = await supabaseClient.rpc("enregistrer_vente", {
     p_caisse_id: caisseId,
     p_session_id: sessionId,
@@ -144,9 +144,24 @@ async function enregistrerVente({ caisseId, sessionId, produit, utilisateurId })
     p_montant: produit.prix_vente,
     p_categorie: produit.categorie,
     p_utilisateur_id: utilisateurId,
+    p_mode_paiement: modePaiement || "especes",
   });
   if (error) throw error;
   return data;
+}
+
+async function getTotalEspecesSession(sessionId) {
+  const { data, error } = await supabaseClient
+    .from("mouvements_caisse")
+    .select("type, montant, mode_paiement")
+    .eq("session_id", sessionId);
+  if (error) throw error;
+  return data.reduce((total, m) => {
+    if (m.type === "vente" && m.mode_paiement !== "especes") return total;
+    if (m.type === "vente" || m.type === "transfert_entrant") return total + m.montant;
+    if (m.type === "achat" || m.type === "transfert_sortant") return total - m.montant;
+    return total;
+  }, 0);
 }
 
 async function annulerVente(sessionId, produitId, categorie) {

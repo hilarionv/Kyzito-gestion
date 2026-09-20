@@ -24,6 +24,11 @@
     <span style="font-size:20px; font-weight:700;" id="total-session">0</span>
   </div>
 
+  <div class="tabs" style="margin-top: 4px;">
+    <button class="active" id="btn-especes" onclick="changerModePaiement('especes')">💵 Espèces</button>
+    <button id="btn-mobile" onclick="changerModePaiement('mobile')">📱 Wave / OM</button>
+  </div>
+
   <input type="text" id="recherche" placeholder="🔍 Rechercher un produit…" oninput="afficherProduits()" style="margin-top: 4px;" />
 
   <div class="tabs">
@@ -47,7 +52,13 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase-client.js"></script>
 <script>
-let utilisateur, secteur, caisse, session, produits = [], filtreActuel = "boisson", restoActuel = "resto_1", quantites = {};
+let utilisateur, secteur, caisse, session, produits = [], filtreActuel = "boisson", restoActuel = "resto_1", quantites = {}, modePaiementActuel = "especes";
+
+function changerModePaiement(mode) {
+  modePaiementActuel = mode;
+  document.getElementById("btn-especes").classList.toggle("active", mode === "especes");
+  document.getElementById("btn-mobile").classList.toggle("active", mode === "mobile");
+}
 
 async function init() {
   utilisateur = getUtilisateurLocal();
@@ -158,12 +169,13 @@ async function vendre(produitId) {
   }
 
   try {
-    await enregistrerVente({ caisseId: caisse.id, sessionId: session.id, produit: { ...produit, prix_vente: montant }, utilisateurId: utilisateur.id });
+    await enregistrerVente({ caisseId: caisse.id, sessionId: session.id, produit: { ...produit, prix_vente: montant }, utilisateurId: utilisateur.id, modePaiement: modePaiementActuel });
     quantites[produitId]++;
     if (produit.categorie === "boisson" && !produit.prix_variable) produit.stock_frigo--;
     const total = document.getElementById("total-session");
     total.textContent = (parseInt(total.textContent.replace(/\D/g, "")) + montant).toLocaleString("fr-FR");
     afficherProduits();
+    if (modePaiementActuel === "mobile") changerModePaiement("especes");
   } catch (e) {
     alert("Impossible d'enregistrer la vente. Réessaie.");
   }
@@ -195,7 +207,7 @@ async function clorerSessionUI() {
   const montantReel = parseInt(montantReelStr, 10);
   if (isNaN(montantReel)) { alert("Montant invalide."); return; }
 
-  const montantTheorique = parseInt(document.getElementById("total-session").textContent.replace(/\D/g, ""), 10) + session.montant_ouverture;
+  const montantTheorique = await getTotalEspecesSession(session.id) + session.montant_ouverture;
   await cloturerSession(session.id, montantTheorique, montantReel, utilisateur.id);
   alert("Session clôturée. Écart : " + (montantReel - montantTheorique).toLocaleString("fr-FR") + " FCFA");
   window.location.href = "../index.html";
