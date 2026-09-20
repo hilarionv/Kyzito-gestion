@@ -28,6 +28,9 @@
   <p class="section-label" style="margin-top: 1rem;">Stock actuel</p>
   <div id="liste-stock"></div>
 
+  <p class="section-label" style="margin-top: 1rem;">🕒 Historique récent (qui a modifié quoi)</p>
+  <div id="liste-historique"></div>
+
   <p class="section-label" style="margin-top: 1rem;">Ajouter un nouveau produit</p>
   <div class="card">
     <p class="section-label">Catégorie</p>
@@ -77,6 +80,41 @@ async function init() {
 
   afficherFormulaireLivraison();
   afficherStock();
+  afficherHistorique();
+}
+
+const LABELS_MOUVEMENT_STOCK = {
+  livraison: "Livraison",
+  grenier_vers_frigo: "Transfert → frigo",
+  vente: "Vente",
+};
+
+async function afficherHistorique() {
+  const mouvements = await getMouvementsStockRecents(20);
+  const conteneur = document.getElementById("liste-historique");
+  conteneur.innerHTML = "";
+
+  if (mouvements.length === 0) {
+    conteneur.innerHTML = `<p class="meta">Aucun mouvement pour l'instant.</p>`;
+    return;
+  }
+
+  mouvements.forEach(m => {
+    const heure = new Date(m.created_at).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    const nomProduit = m.produits ? m.produits.nom : "—";
+    const nomAuteur = m.utilisateurs ? m.utilisateurs.nom : "—";
+    const signe = m.quantite > 0 ? "+" : "";
+
+    const div = document.createElement("div");
+    div.className = "row";
+    div.innerHTML = `
+      <div>
+        <p class="name">${nomProduit}</p>
+        <p class="meta">${LABELS_MOUVEMENT_STOCK[m.type] || m.type} · ${heure} · par ${nomAuteur}</p>
+      </div>
+      <span style="font-size:15px; font-weight:600;">${signe}${m.quantite}</span>`;
+    conteneur.appendChild(div);
+  });
 }
 
 function afficherFormulaireLivraison() {
@@ -127,11 +165,15 @@ function afficherStock() {
       const div = document.createElement("div");
       div.className = "card";
       div.innerHTML = `
-        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
           <span class="name" style="${epuise ? 'color: var(--danger);' : ''}">${p.nom}</span>
-          <span class="meta" style="${epuise ? 'color: var(--danger);' : ''}">
-            Frigo ${p.stock_frigo} · Grenier ${p.stock_grenier}
-          </span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn-round" onclick="ajusterFrigo('${p.id}', -1)">−</button>
+            <span class="meta" style="min-width:90px; text-align:center; ${epuise ? 'color: var(--danger);' : ''}">
+              Frigo ${p.stock_frigo} · Grenier ${p.stock_grenier}
+            </span>
+            <button class="btn-round primary" onclick="ajusterFrigo('${p.id}', 1)">+</button>
+          </div>
         </div>
         <button style="width:100%; font-size:12px;" ${p.stock_grenier === 0 ? "disabled" : ""} onclick="transfererProduit('${p.id}')">
           ↓ Transférer vers le frigo
@@ -143,6 +185,17 @@ function afficherStock() {
 function filtrerRecherche() {
   afficherFormulaireLivraison();
   afficherStock();
+}
+
+async function ajusterFrigo(produitId, delta) {
+  const produit = produits.find(p => p.id === produitId);
+  try {
+    const nouveauStock = await corrigerStockFrigo(produitId, delta, utilisateur.id);
+    produit.stock_frigo = nouveauStock;
+    afficherStock();
+  } catch (e) {
+    alert("Impossible d'ajuster le stock.");
+  }
 }
 
 async function transfererProduit(produitId) {

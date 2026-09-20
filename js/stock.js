@@ -1,7 +1,43 @@
 
 // ------------------------------------------------------------
-// Ajouter un nouveau produit au catalogue
+// Historique des mouvements de stock (audit — qui a fait quoi)
 // ------------------------------------------------------------
+async function getMouvementsStockRecents(limit = 20) {
+  const { data, error } = await supabaseClient
+    .from("mouvements_stock")
+    .select("*, produits(nom), utilisateurs(nom)")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data;
+}
+
+// ------------------------------------------------------------
+// Correction rapide du stock frigo (+1/-1), pour les petits
+// ajustements sans passer par le formulaire de livraison
+// ------------------------------------------------------------
+async function corrigerStockFrigo(produitId, delta, utilisateurId) {
+  const { data: produit, error: e1 } = await supabaseClient
+    .from("produits")
+    .select("stock_frigo")
+    .eq("id", produitId)
+    .single();
+  if (e1) throw e1;
+
+  const nouveauStock = Math.max(0, produit.stock_frigo + delta);
+  const { error: e2 } = await supabaseClient.from("produits").update({ stock_frigo: nouveauStock }).eq("id", produitId);
+  if (e2) throw e2;
+
+  const { error: e3 } = await supabaseClient.from("mouvements_stock").insert({
+    produit_id: produitId,
+    type: delta > 0 ? "livraison" : "vente",
+    quantite: delta,
+    created_by: utilisateurId,
+  });
+  if (e3) throw e3;
+
+  return nouveauStock;
+}
 async function ajouterProduit({ secteurId, nom, categorie, prixVente, emplacement, prixVariable }) {
   const { data, error } = await supabaseClient
     .from("produits")

@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="../css/style.css" />
 </head>
 <body>
-<div class="screen">
+<div class="screen screen-with-bottom-bar">
   <div class="top-bar">
     <div>
       <h1 id="titre-session">Session —</h1>
@@ -42,11 +42,14 @@
   </div>
 
   <div id="liste-produits"></div>
+</div>
 
-  <button style="width:100%; margin-top: 10px;" onclick="ouvrirDepense()">− Prélever pour un achat</button>
-  <button style="width:100%; margin-top: 8px;" onclick="window.location.href='piscines.html'">🏊 Piscines</button>
-  <button style="width:100%; margin-top: 8px;" onclick="window.location.href='dernieres-ventes.html'">📋 Dernières ventes</button>
-  <button style="width:100%; margin-top: 8px; color: var(--danger); border-color: var(--danger-bg);" onclick="clorerSessionUI()">Clôturer la session</button>
+<div class="bottom-bar">
+  <button onclick="ouvrirDepense()"><span class="icon">➖</span>Achat</button>
+  <button onclick="window.location.href='stock-consultation.html'"><span class="icon">📦</span>Stock</button>
+  <button onclick="window.location.href='piscines.html'"><span class="icon">🏊</span>Piscines</button>
+  <button onclick="window.location.href='dernieres-ventes.html'"><span class="icon">📋</span>Ventes</button>
+  <button class="danger" onclick="clorerSessionUI()"><span class="icon">🔒</span>Clôturer</button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

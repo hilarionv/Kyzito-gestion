@@ -1,8 +1,8 @@
 
 // ------------------------------------------------------------
-// Piscines — tickets journaliers, prix unitaire fixe
+// Piscines — tickets journaliers, 5 prix possibles
 // ------------------------------------------------------------
-const PRIX_TICKET_PISCINE = 3000;
+const PRIX_TICKETS_PISCINE = [2000, 2500, 3000, 4000, 5000];
 
 async function getVentesPiscineDuJour() {
   const aujourdhui = new Date().toISOString().slice(0, 10);
@@ -14,12 +14,12 @@ async function getVentesPiscineDuJour() {
   return data;
 }
 
-async function ajouterTicketsPiscine(nombreTickets, caisseId, utilisateurId) {
+async function ajouterTicketPiscine(prixUnitaire, caisseId, utilisateurId) {
   const { data, error } = await supabaseClient
     .from("ventes_piscine")
     .insert({
-      nombre_tickets: nombreTickets,
-      prix_unitaire: PRIX_TICKET_PISCINE,
+      nombre_tickets: 1,
+      prix_unitaire: prixUnitaire,
       caisse_id: caisseId,
       created_by: utilisateurId,
     })
@@ -30,8 +30,8 @@ async function ajouterTicketsPiscine(nombreTickets, caisseId, utilisateurId) {
   const { error: e2 } = await supabaseClient.from("mouvements_caisse").insert({
     caisse_id: caisseId,
     type: "vente",
-    montant: nombreTickets * PRIX_TICKET_PISCINE,
-    description: nombreTickets + " ticket(s) piscine",
+    montant: prixUnitaire,
+    description: "Ticket piscine (" + prixUnitaire.toLocaleString("fr-FR") + " FCFA)",
     created_by: utilisateurId,
   });
   if (e2) throw e2;
