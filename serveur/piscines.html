@@ -70,7 +70,10 @@ function afficherPrix() {
         <p class="name">${prix.toLocaleString("fr-FR")} FCFA</p>
         <p class="meta">${comptesParPrix[prix]} vendu(s) aujourd'hui</p>
       </div>
-      <button class="btn-round primary" onclick="vendreTicket(${prix})">+</button>`;
+      <div style="display:flex; align-items:center; gap:10px;">
+        ${utilisateur.role === "admin" ? `<button class="btn-round" ${comptesParPrix[prix] === 0 ? "disabled" : ""} onclick="retirerTicket(${prix})">−</button>` : ""}
+        <button class="btn-round primary" onclick="vendreTicket(${prix})">+</button>
+      </div>`;
     conteneur.appendChild(row);
   });
 }
@@ -85,6 +88,20 @@ async function vendreTicket(prix) {
     afficherPrix();
   } catch (e) {
     alert("Impossible d'enregistrer le ticket.");
+  }
+}
+
+async function retirerTicket(prix) {
+  try {
+    const supprime = await annulerTicketPiscine(prix, caisse.id);
+    if (!supprime) return;
+    totalTickets--;
+    totalMontant -= prix;
+    comptesParPrix[prix]--;
+    afficherTotal();
+    afficherPrix();
+  } catch (e) {
+    alert("Impossible de retirer ce ticket.");
   }
 }
 

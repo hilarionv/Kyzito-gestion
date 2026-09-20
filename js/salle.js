@@ -1,8 +1,8 @@
 
 // ------------------------------------------------------------
-// Salle de conférence — tarif fixe 150 000 FCFA / jour
+// Salle de conférence — tarif fixe 100 000 FCFA / jour
 // ------------------------------------------------------------
-const TARIF_SALLE = 150000;
+const TARIF_SALLE = 100000;
 
 async function getReservationsSalleDuMois() {
   const debut = new Date();
