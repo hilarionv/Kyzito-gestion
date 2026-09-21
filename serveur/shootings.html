@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Shootings photo</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="screen">
+  <div class="top-bar">
+    <h1>Shootings photo</h1>
+    <button onclick="retour()" style="font-size:12px;">← Retour</button>
+  </div>
+
+  <div class="card" style="text-align:center; padding: 1.25rem;">
+    <p class="meta" style="margin:0 0 4px;">Shootings — aujourd'hui</p>
+    <p id="compteur" style="font-size:34px; font-weight:600; margin:0 0 4px;">0</p>
+    <p class="meta" id="total" style="margin:0;">0 FCFA</p>
+  </div>
+
+  <p class="section-label" style="margin-top: 1rem;">Choisis la formule</p>
+  <div id="liste-prix" style="display:flex; flex-direction:column; gap:8px;"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/shootings.js"></script>
+<script>
+let utilisateur, caisse, totalVentes = 0, totalMontant = 0, comptesParPrix = {};
+
+function retour() {
+  window.location.href = utilisateur && utilisateur.role === "admin" ? "../admin/index.html" : "vente.html";
+}
+
+async function init() {
+  utilisateur = getUtilisateurLocal();
+  if (!utilisateur) { window.location.href = "../index.html"; return; }
+
+  const secteurs = await getSecteurs();
+  const secteur = secteurs.find(s => s.type === "shooting_photo");
+  caisse = await getCaisseParSecteur(secteur.id);
+
+  PRIX_SHOOTING.forEach(p => comptesParPrix[p] = 0);
+
+  const ventes = await getVentesShootingDuJour();
+  ventes.forEach(v => {
+    totalVentes++;
+    totalMontant += v.prix_unitaire;
+    if (comptesParPrix[v.prix_unitaire] !== undefined) comptesParPrix[v.prix_unitaire]++;
+  });
+
+  afficherPrix();
+  afficherTotal();
+}
+
+function afficherTotal() {
+  document.getElementById("compteur").textContent = totalVentes;
+  document.getElementById("total").textContent = totalMontant.toLocaleString("fr-FR") + " FCFA";
+}
+
+function afficherPrix() {
+  const conteneur = document.getElementById("liste-prix");
+  conteneur.innerHTML = "";
+  PRIX_SHOOTING.forEach(prix => {
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML = `
+      <div>
+        <p class="name">${prix.toLocaleString("fr-FR")} FCFA</p>
+        <p class="meta">${comptesParPrix[prix]} vendu(s) aujourd'hui</p>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        ${utilisateur.role === "admin" ? `<button class="btn-round" ${comptesParPrix[prix] === 0 ? "disabled" : ""} onclick="retirerVente(${prix})">−</button>` : ""}
+        <button class="btn-round primary" onclick="vendre(${prix})">+</button>
+      </div>`;
+    conteneur.appendChild(row);
+  });
+}
+
+async function vendre(prix) {
+  try {
+    await ajouterVenteShooting(prix, caisse.id, utilisateur.id);
+    totalVentes++;
+    totalMontant += prix;
+    comptesParPrix[prix]++;
+    afficherTotal();
+    afficherPrix();
+  } catch (e) {
+    alert("Impossible d'enregistrer le shooting.");
+  }
+}
+
+async function retirerVente(prix) {
+  try {
+    const supprime = await annulerVenteShooting(prix, caisse.id);
+    if (!supprime) return;
+    totalVentes--;
+    totalMontant -= prix;
+    comptesParPrix[prix]--;
+    afficherTotal();
+    afficherPrix();
+  } catch (e) {
+    alert("Impossible de retirer ce shooting.");
+  }
+}
+
+init();
+</script>
+</body>
+</html>
