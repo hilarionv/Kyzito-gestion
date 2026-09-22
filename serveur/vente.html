@@ -19,9 +19,17 @@
     </select>
   </div>
 
-  <div class="card" style="background: var(--text-primary); color: #fff; display:flex; justify-content:space-between; align-items:center; padding: 0.9rem 1.1rem;">
-    <span style="font-size:14px; opacity:0.8;">Total session</span>
-    <span style="font-size:20px; font-weight:700;" id="total-session">0</span>
+  <div class="card" style="background: var(--text-primary); color: #fff; padding: 0.9rem 1.1rem; cursor:pointer;" onclick="toggleDetailSession()">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <span style="font-size:14px; opacity:0.8;">Total session <span style="opacity:0.6;">(toucher pour le détail)</span></span>
+      <span style="font-size:20px; font-weight:700;" id="total-session">0</span>
+    </div>
+    <div id="detail-session" style="display:none; margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.2); font-size:13px;">
+      <div style="display:flex; justify-content:space-between; padding:3px 0;"><span>💵 Espèces</span><span id="detail-especes">0</span></div>
+      <div style="display:flex; justify-content:space-between; padding:3px 0;"><span>🟢 Wave</span><span id="detail-wave">0</span></div>
+      <div style="display:flex; justify-content:space-between; padding:3px 0;"><span>🟠 Orange Money</span><span id="detail-om">0</span></div>
+      <div style="display:flex; justify-content:space-between; padding:3px 0; opacity:0.8;"><span>− Dépenses/achats</span><span id="detail-depenses">0</span></div>
+    </div>
   </div>
 
   <div class="tabs" style="margin-top: 4px;">
@@ -65,6 +73,28 @@
 let utilisateur, secteur, caisse, session, produits = [], filtreActuel = "boisson", restoActuel = "resto_1", quantites = {}, modePaiementActuel = "especes";
 
 const NOMS_MODE = { especes: "Espèces", wave: "Wave", orange_money: "Orange Money" };
+
+async function toggleDetailSession() {
+  const bloc = document.getElementById("detail-session");
+  const visible = bloc.style.display === "block";
+  if (visible) { bloc.style.display = "none"; return; }
+  bloc.style.display = "block";
+  await rafraichirDetailSession();
+}
+
+async function rafraichirDetailSession() {
+  const bloc = document.getElementById("detail-session");
+  if (bloc.style.display !== "block") return;
+  try {
+    const detail = await getDetailSession(session.id);
+    document.getElementById("detail-especes").textContent = detail.especes.toLocaleString("fr-FR");
+    document.getElementById("detail-wave").textContent = detail.wave.toLocaleString("fr-FR");
+    document.getElementById("detail-om").textContent = detail.orange_money.toLocaleString("fr-FR");
+    document.getElementById("detail-depenses").textContent = detail.depenses.toLocaleString("fr-FR");
+  } catch (e) {
+    // silencieux — le total principal reste correct même si le détail échoue
+  }
+}
 
 function changerModePaiement(mode) {
   modePaiementActuel = mode;
@@ -196,6 +226,7 @@ async function vendre(produitId) {
     const total = document.getElementById("total-session");
     total.textContent = (parseInt(total.textContent.replace(/\D/g, "")) + montant).toLocaleString("fr-FR");
     afficherProduits();
+    rafraichirDetailSession();
 
     if (modePaiementActuel !== "especes") {
       const confirmation = document.getElementById("confirmation-vente");
@@ -219,6 +250,7 @@ async function retirer(produitId) {
     const total = document.getElementById("total-session");
     total.textContent = Math.max(0, parseInt(total.textContent.replace(/\D/g, "")) - montant).toLocaleString("fr-FR");
     afficherProduits();
+    rafraichirDetailSession();
   } catch (e) {
     alert("Impossible d'annuler cette vente.");
   }

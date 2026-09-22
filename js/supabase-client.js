@@ -240,6 +240,26 @@ async function getMouvementsDuJour(date) {
   return data;
 }
 
+async function getDetailSession(sessionId) {
+  const { data, error } = await supabaseClient
+    .from("mouvements_caisse")
+    .select("type, montant, mode_paiement")
+    .eq("session_id", sessionId);
+  if (error) throw error;
+
+  const detail = { especes: 0, wave: 0, orange_money: 0, depenses: 0 };
+  data.forEach(m => {
+    if (m.type === "vente") {
+      if (m.mode_paiement === "wave") detail.wave += m.montant;
+      else if (m.mode_paiement === "orange_money") detail.orange_money += m.montant;
+      else detail.especes += m.montant;
+    } else if (m.type === "achat") {
+      detail.depenses += m.montant;
+    }
+  });
+  return detail;
+}
+
 // ------------------------------------------------------------
 // Comptabilité (vues v_compta_journaliere / v_compta_mensuelle)
 // ------------------------------------------------------------
