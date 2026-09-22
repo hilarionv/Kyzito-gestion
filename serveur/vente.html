@@ -159,7 +159,7 @@ function afficherProduits() {
     .filter(p => p.emplacement === null || p.emplacement === restoActuel)
     .filter(p => !recherche || p.nom.toLowerCase().includes(recherche))
     .forEach(p => {
-      const enRupture = p.categorie === "boisson" && p.stock_frigo <= 0 && !p.prix_variable;
+      const enRupture = p.categorie === "boisson" && p.stock <= 0 && !p.prix_variable;
       const row = document.createElement("div");
       row.className = "row";
       row.innerHTML = `
@@ -192,7 +192,7 @@ async function vendre(produitId) {
   try {
     await enregistrerVente({ caisseId: caisse.id, sessionId: session.id, produit: { ...produit, prix_vente: montant }, utilisateurId: utilisateur.id, modePaiement: modePaiementActuel });
     quantites[produitId]++;
-    if (produit.categorie === "boisson" && !produit.prix_variable) produit.stock_frigo--;
+    if (produit.categorie === "boisson" && !produit.prix_variable) produit.stock--;
     const total = document.getElementById("total-session");
     total.textContent = (parseInt(total.textContent.replace(/\D/g, "")) + montant).toLocaleString("fr-FR");
     afficherProduits();
@@ -215,7 +215,7 @@ async function retirer(produitId) {
     const montant = await annulerVente(session.id, produitId, produit.categorie);
     if (montant === null) return;
     quantites[produitId]--;
-    if (produit.categorie === "boisson") produit.stock_frigo++;
+    if (produit.categorie === "boisson") produit.stock++;
     const total = document.getElementById("total-session");
     total.textContent = Math.max(0, parseInt(total.textContent.replace(/\D/g, "")) - montant).toLocaleString("fr-FR");
     afficherProduits();

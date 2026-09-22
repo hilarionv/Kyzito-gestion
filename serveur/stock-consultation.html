@@ -20,12 +20,11 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase-client.js"></script>
-<script src="../js/stock.js"></script>
 <script>
-let utilisateur, produits = [];
+let produits = [];
 
 async function init() {
-  utilisateur = getUtilisateurLocal();
+  const utilisateur = getUtilisateurLocal();
   if (!utilisateur) { window.location.href = "../index.html"; return; }
 
   const secteurs = await getSecteurs();
@@ -42,36 +41,14 @@ function afficher() {
   produits
     .filter(p => !recherche || p.nom.toLowerCase().includes(recherche))
     .forEach(p => {
-      const epuise = p.stock_frigo === 0;
+      const epuise = p.stock === 0;
       const div = document.createElement("div");
-      div.className = "card";
+      div.className = "row";
       div.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <span class="name">${p.nom}${p.emplacement ? " (" + (p.emplacement === "resto_2" ? "CLK" : "Resto 1") + ")" : ""}</span>
-          <span class="badge ${epuise ? 'badge-danger' : 'badge-success'}">Frigo : ${p.stock_frigo}</span>
-        </div>
-        <button style="width:100%; font-size:12px;" ${p.stock_grenier === 0 ? "disabled" : ""} onclick="transfererProduit('${p.id}')">
-          ↓ Remplir le frigo depuis le grenier (${p.stock_grenier} dispo)
-        </button>`;
+        <span class="name">${p.nom}${p.emplacement ? " (" + (p.emplacement === "resto_2" ? "CLK" : "Resto 1") + ")" : ""}</span>
+        <span class="badge ${epuise ? 'badge-danger' : 'badge-success'}">${p.stock}</span>`;
       conteneur.appendChild(div);
     });
-}
-
-async function transfererProduit(produitId) {
-  const produit = produits.find(p => p.id === produitId);
-  const quantiteStr = prompt(`Quantité à transférer vers le frigo (stock grenier: ${produit.stock_grenier}) :`);
-  if (quantiteStr === null) return;
-  const quantite = parseInt(quantiteStr, 10);
-  if (isNaN(quantite) || quantite <= 0) { alert("Quantité invalide."); return; }
-
-  try {
-    await transfererVersFrigo(produitId, quantite, utilisateur.id);
-    produit.stock_grenier -= quantite;
-    produit.stock_frigo += quantite;
-    afficher();
-  } catch (e) {
-    alert(e.message || "Transfert impossible.");
-  }
 }
 
 init();

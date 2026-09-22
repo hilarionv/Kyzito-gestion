@@ -29,6 +29,30 @@ async function getReservationsDuJour() {
   return data;
 }
 
+async function getReservationsAVenir() {
+  const aujourdhui = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabaseClient
+    .from("reservations_chambres")
+    .select("*, chambres(numero, types_chambres(nom))")
+    .gt("date_debut", aujourdhui)
+    .neq("statut", "annulee")
+    .order("date_debut", { ascending: true });
+  if (error) throw error;
+  return data;
+}
+
+async function getReservationsPassees(limit = 30) {
+  const aujourdhui = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabaseClient
+    .from("reservations_chambres")
+    .select("*, chambres(numero, types_chambres(nom))")
+    .lt("date_fin", aujourdhui)
+    .order("date_fin", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data;
+}
+
 async function creerReservation({ chambreId, clientNom, dateDebut, dateFin, montantTotal, caisseId }) {
   const { data, error } = await supabaseClient
     .from("reservations_chambres")

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Valorisation du stock</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="screen">
+  <div class="top-bar">
+    <h1>📊 Valorisation</h1>
+    <button onclick="window.location.href='index.html'" style="font-size:12px;">← Retour</button>
+  </div>
+
+  <p class="meta" style="margin-bottom: 10px;">
+    Compare la valeur des boissons livrées (quantité × prix) à ce qui a
+    réellement été vendu, pour repérer les écarts. Un produit invendu
+    (encore en stock) explique une partie de l'écart — ce n'est pas
+    forcément une perte.
+  </p>
+
+  <input type="month" id="mois-filtre" onchange="charger()" style="margin-bottom: 12px;" />
+
+  <div class="grid-2" style="margin-bottom: 1rem;">
+    <div class="metric-card">
+      <p class="label">Valeur livrée</p>
+      <p class="value" id="total-livree">…</p>
+    </div>
+    <div class="metric-card">
+      <p class="label">Valeur vendue</p>
+      <p class="value" id="total-vendue">…</p>
+    </div>
+  </div>
+
+  <div id="liste"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/stock.js"></script>
+<script>
+async function init() {
+  const utilisateur = getUtilisateurLocal();
+  if (!utilisateur || utilisateur.role !== "admin") { window.location.href = "../index.html"; return; }
+
+  document.getElementById("mois-filtre").value = new Date().toISOString().slice(0, 7);
+  charger();
+}
+
+async function charger() {
+  const mois = document.getElementById("mois-filtre").value;
+  if (!mois) return;
+
+  const data = await getValorisationDuMois(mois);
+  const conteneur = document.getElementById("liste");
+  conteneur.innerHTML = "";
+
+  let totalLivree = 0, totalVendue = 0;
+
+  if (data.length === 0) {
+    conteneur.innerHTML = `<p class="meta">Pas de livraison enregistrée ce mois-ci.</p>`;
+  }
+
+  data
+    .sort((a, b) => (b.valeurLivree - b.valeurVendue) - (a.valeurLivree - a.valeurVendue))
+    .forEach(d => {
+      totalLivree += d.valeurLivree;
+      totalVendue += d.valeurVendue;
+      const ecart = d.valeurVendue - d.valeurLivree;
+      const alerte = ecart < 0;
+
+      const div = document.createElement("div");
+      div.className = "row";
+      div.innerHTML = `
+        <div>
+          <p class="name">${d.nom}${d.emplacement ? " (" + (d.emplacement === "resto_2" ? "CLK" : "Resto 1") + ")" : ""}</p>
+          <p class="meta">Livré : ${d.valeurLivree.toLocaleString("fr-FR")} · Vendu : ${d.valeurVendue.toLocaleString("fr-FR")}</p>
+        </div>
+        <span class="badge ${alerte ? 'badge-danger' : 'badge-success'}">${ecart >= 0 ? "+" : ""}${ecart.toLocaleString("fr-FR")}</span>`;
+      conteneur.appendChild(div);
+    });
+
+  document.getElementById("total-livree").textContent = totalLivree.toLocaleString("fr-FR");
+  document.getElementById("total-vendue").textContent = totalVendue.toLocaleString("fr-FR");
+}
+
+init();
+</script>
+</body>
+</html>

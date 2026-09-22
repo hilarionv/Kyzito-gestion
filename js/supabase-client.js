@@ -183,11 +183,11 @@ async function annulerVente(sessionId, produitId, categorie) {
   if (categorie === "boisson") {
     const { data: produit, error: e3 } = await supabaseClient
       .from("produits")
-      .select("stock_frigo")
+      .select("stock")
       .eq("id", produitId)
       .single();
     if (e3) throw e3;
-    await supabaseClient.from("produits").update({ stock_frigo: produit.stock_frigo + 1 }).eq("id", produitId);
+    await supabaseClient.from("produits").update({ stock: produit.stock + 1 }).eq("id", produitId);
   }
 
   return derniere.montant;

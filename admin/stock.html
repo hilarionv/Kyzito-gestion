@@ -21,7 +21,7 @@
 
   <div class="card">
     <div id="liste-livraison"></div>
-    <button class="btn-primary" onclick="validerLivraison()">Ajouter au grenier</button>
+    <button class="btn-primary" onclick="validerLivraison()">Ajouter au stock</button>
     <p id="erreur-livraison" style="color: var(--danger); font-size: 13px; margin-top: 8px; display:none;"></p>
   </div>
 
@@ -47,8 +47,8 @@ async function init() {
 
   const secteurs = await getSecteurs();
   secteur = secteurs.find(s => s.type === "bar_restaurant");
-  // Seules les boissons ont un stock (grenier/frigo) — la nourriture
-  // n'est pas gérée de cette façon.
+  // Seules les boissons ont un stock — la nourriture n'est pas gérée
+  // de cette façon.
   produits = (await getProduits(secteur.id)).filter(p => p.categorie === "boisson");
 
   afficherFormulaireLivraison();
@@ -81,7 +81,7 @@ async function validerLivraison() {
       const quantite = parseInt(input.value, 10);
       if (!isNaN(quantite) && quantite > 0) {
         await enregistrerLivraison(p.id, quantite, utilisateur.id);
-        p.stock_grenier += quantite;
+        p.stock += quantite;
         input.value = "";
       }
     }
@@ -99,23 +99,16 @@ function afficherStock() {
   produits
     .filter(p => !recherche || p.nom.toLowerCase().includes(recherche))
     .forEach(p => {
-      const epuise = p.stock_grenier === 0 && p.stock_frigo === 0;
+      const epuise = p.stock === 0;
       const div = document.createElement("div");
-      div.className = "card";
+      div.className = "row";
       div.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-          <span class="name" style="${epuise ? 'color: var(--danger);' : ''}">${p.nom}</span>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <button class="btn-round" onclick="ajusterFrigo('${p.id}', -1)">−</button>
-            <span class="meta" style="min-width:90px; text-align:center; ${epuise ? 'color: var(--danger);' : ''}">
-              Frigo ${p.stock_frigo} · Grenier ${p.stock_grenier}
-            </span>
-            <button class="btn-round primary" onclick="ajusterFrigo('${p.id}', 1)">+</button>
-          </div>
-        </div>
-        <button style="width:100%; font-size:12px;" ${p.stock_grenier === 0 ? "disabled" : ""} onclick="transfererProduit('${p.id}')">
-          ↓ Transférer vers le frigo
-        </button>`;
+        <span class="name" style="${epuise ? 'color: var(--danger);' : ''}">${p.nom}</span>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <button class="btn-round" onclick="ajuster('${p.id}', -1)">−</button>
+          <span style="min-width:30px; text-align:center; font-weight:600; ${epuise ? 'color: var(--danger);' : ''}">${p.stock}</span>
+          <button class="btn-round primary" onclick="ajuster('${p.id}', 1)">+</button>
+        </div>`;
       conteneur.appendChild(div);
     });
 }
@@ -125,31 +118,14 @@ function filtrerRecherche() {
   afficherStock();
 }
 
-async function ajusterFrigo(produitId, delta) {
+async function ajuster(produitId, delta) {
   const produit = produits.find(p => p.id === produitId);
   try {
-    const nouveauStock = await corrigerStockFrigo(produitId, delta, utilisateur.id);
-    produit.stock_frigo = nouveauStock;
+    const nouveauStock = await corrigerStock(produitId, delta, utilisateur.id);
+    produit.stock = nouveauStock;
     afficherStock();
   } catch (e) {
     alert("Impossible d'ajuster le stock.");
-  }
-}
-
-async function transfererProduit(produitId) {
-  const produit = produits.find(p => p.id === produitId);
-  const quantiteStr = prompt(`Quantité à transférer vers le frigo (stock grenier: ${produit.stock_grenier}) :`);
-  if (quantiteStr === null) return;
-  const quantite = parseInt(quantiteStr, 10);
-  if (isNaN(quantite) || quantite <= 0) { alert("Quantité invalide."); return; }
-
-  try {
-    await transfererVersFrigo(produitId, quantite, utilisateur.id);
-    produit.stock_grenier -= quantite;
-    produit.stock_frigo += quantite;
-    afficherStock();
-  } catch (e) {
-    alert(e.message || "Transfert impossible.");
   }
 }
 

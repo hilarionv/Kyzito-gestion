@@ -27,7 +27,12 @@
   <p class="section-label">Chambres par type</p>
   <div id="liste-types"></div>
 
-  <p class="section-label" style="margin-top: 1rem;">Réservations du jour</p>
+  <p class="section-label" style="margin-top: 1rem;">Réservations</p>
+  <div class="tabs">
+    <button class="active" data-vue="jour" onclick="changerVue('jour', this)">Aujourd'hui</button>
+    <button data-vue="avenir" onclick="changerVue('avenir', this)">À venir</button>
+    <button data-vue="historique" onclick="changerVue('historique', this)">Historique</button>
+  </div>
   <div id="liste-reservations"></div>
 
   <button class="btn-primary" style="margin-top: 10px;" onclick="ouvrirFormulaire()">+ Nouvelle réservation</button>
@@ -50,7 +55,7 @@
 <script src="../js/supabase-client.js"></script>
 <script src="../js/chambres.js"></script>
 <script>
-let utilisateur, secteur, caisse, chambres = [], types = [], reservations = [];
+let utilisateur, secteur, caisse, chambres = [], types = [], reservations = [], reservationsAVenir = [], reservationsPassees = [], vueActuelle = "jour";
 
 async function init() {
   utilisateur = getUtilisateurLocal();
@@ -63,11 +68,20 @@ async function init() {
   types = await getTypesChambres();
   chambres = await getChambres();
   reservations = await getReservationsDuJour();
+  reservationsAVenir = await getReservationsAVenir();
+  reservationsPassees = await getReservationsPassees();
 
   afficherResume();
   afficherTypes();
   afficherReservations();
   remplirSelectChambres();
+}
+
+function changerVue(vue, btn) {
+  vueActuelle = vue;
+  document.querySelectorAll(".tabs button").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  afficherReservations();
 }
 
 function afficherResume() {
@@ -102,21 +116,29 @@ function afficherTypes() {
 function afficherReservations() {
   const conteneur = document.getElementById("liste-reservations");
   conteneur.innerHTML = "";
-  if (reservations.length === 0) {
-    conteneur.innerHTML = `<p class="meta">Aucune réservation aujourd'hui.</p>`;
+
+  const liste = vueActuelle === "jour" ? reservations : vueActuelle === "avenir" ? reservationsAVenir : reservationsPassees;
+  const messageVide = vueActuelle === "jour" ? "Aucune réservation aujourd'hui." : vueActuelle === "avenir" ? "Aucune réservation à venir." : "Aucune réservation passée.";
+
+  if (liste.length === 0) {
+    conteneur.innerHTML = `<p class="meta">${messageVide}</p>`;
     return;
   }
-  reservations.forEach(r => {
-    const badgeClass = r.statut === "occupee" ? "badge-success" : "badge-warning";
+
+  liste.forEach(r => {
+    const badgeClass = r.statut === "occupee" ? "badge-success" : r.statut === "terminee" ? "badge-accent" : "badge-warning";
+    const badgeTexte = r.statut === "occupee" ? "Occupée" : r.statut === "terminee" ? "Terminée" : "Réservée";
+    const dates = vueActuelle === "jour" ? r.client_nom : r.client_nom + " · " + r.date_debut + " → " + r.date_fin;
+
     const div = document.createElement("div");
     div.className = "row";
     div.innerHTML = `
       <div>
         <p class="name">Chambre ${r.chambres.numero} — ${r.chambres.types_chambres.nom}</p>
-        <p class="meta">${r.client_nom}</p>
+        <p class="meta">${dates}</p>
       </div>
-      <span class="badge ${badgeClass}">${r.statut === "occupee" ? "Occupée" : "Réservée"}</span>`;
-    if (r.statut !== "occupee") {
+      <span class="badge ${badgeClass}">${badgeTexte}</span>`;
+    if (vueActuelle === "jour" && r.statut !== "occupee") {
       div.style.cursor = "pointer";
       div.onclick = () => confirmerArrivee(r.id);
     }
